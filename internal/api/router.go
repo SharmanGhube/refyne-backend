@@ -5,9 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	authRoutes "github.com/refynehq/refyne-backend/internal/domain/auth/routes"
+	"github.com/refynehq/refyne-backend/internal/shared/registry"
 )
 
-func NewRouter(registry *HandlerRegistry) *gin.Engine {
+func NewRouter(registry *registry.HandlerRegistry) *gin.Engine {
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		env = "development"
@@ -29,10 +31,9 @@ func NewRouter(registry *HandlerRegistry) *gin.Engine {
 	// router.Use(middlewares.PrometheusMiddleware())
 
 	// Define your routes here
-	_ = router.Group("/api/v1")
+	apiRoutes := router.Group("/api/v1")
 	{
-		// routes.SetupAuthRoutes(apiRoutes, authHandler)
-		// instagramRoutes.SetupRoutes(apiRoutes, instagramHandler)
+		authRoutes.SetupAuthRoutes(apiRoutes, registry)
 	}
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))

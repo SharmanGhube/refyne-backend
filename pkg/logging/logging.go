@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -197,13 +196,9 @@ func Close() {
 }
 
 // GetHandlerLogger returns a logger with the request ID from the context
-func GetHandlerLogger(c *gin.Context, handlerName string) *zap.Logger {
-	if requestID := c.GetHeader("request_id"); requestID == "" {
-		return GetLogger()
-	}
+func GetHandlerLogger(handlerName string) *zap.Logger {
+
 	return GetLogger().With(
-		zap.String("service_name", "refyne-"),
-		zap.String("request_id", c.GetHeader("request_id")),
 		zap.String("handler_name", handlerName),
 		zap.String("layer", "handler"),
 	)

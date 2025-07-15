@@ -12,6 +12,9 @@ import (
 	"github.com/refynehq/refyne-backend/internal/bootstrap"
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database"
+	auth2 "github.com/refynehq/refyne-backend/internal/domain/auth"
+	"github.com/refynehq/refyne-backend/internal/domain/auth/handler"
+	"github.com/refynehq/refyne-backend/internal/shared/registry"
 	"github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )
@@ -31,7 +34,8 @@ func InitializeApp() (*bootstrap.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	handlerRegistry := api.NewHandlerRegistry()
+	authHandler := auth.NewAuthHandler()
+	handlerRegistry := registry.NewHandlerRegistry(authHandler)
 	engine := api.NewRouter(handlerRegistry)
 	workerDependancies := riverqueue.NewWorkerDependancies()
 	riverService, err := riverqueue.NewRiverService(pool, workerDependancies)
@@ -44,4 +48,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, registry.ProviderSet, auth2.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

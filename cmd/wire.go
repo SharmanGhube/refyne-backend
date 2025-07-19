@@ -9,6 +9,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database"
 	"github.com/refynehq/refyne-backend/internal/domain/auth"
+	"github.com/refynehq/refyne-backend/internal/domain/user"
 	"github.com/refynehq/refyne-backend/internal/shared/registry"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
@@ -25,6 +26,7 @@ var AppSet = wire.NewSet(
 	registry.ProviderSet,
 
 	// Domain layer
+	user.ProviderSet,
 	auth.ProviderSet,
 
 	// API Layer

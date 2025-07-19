@@ -58,11 +58,11 @@ func (a *App) Start(ctx context.Context) error {
 	}
 
 	// Start river service later
-	if err := a.riverService.Start(); err != nil {
-		a.logger.Error("Failed to start River service", zap.Error(err))
-		return fmt.Errorf("failed to start River service: %w", err)
-	}
-	a.logger.Info("River service started successfully")
+	// if err := a.riverService.Start(); err != nil {
+	// 	a.logger.Error("Failed to start River service", zap.Error(err))
+	// 	return fmt.Errorf("failed to start River service: %w", err)
+	// }
+	// a.logger.Info("River service started successfully")
 
 	// Start prometheus service
 

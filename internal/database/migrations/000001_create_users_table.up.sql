@@ -9,10 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Active', 'Banned', 'Deleted')),
     is_active BOOLEAN NOT NULL DEFAULT false,
     is_verified BOOLEAN NOT NULL DEFAULT false,
-    
-    -- User preferences
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    
+        
     -- Security fields
     last_login_at TIMESTAMP WITH TIME ZONE,
     last_login_ip INET,

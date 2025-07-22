@@ -79,6 +79,16 @@ func (e *AppError) WithOperation(operation string) *AppError {
 	return e
 }
 
+// SetRequestIDFromContext sets the request ID from gin context
+func (e *AppError) SetRequestIDFromContext(c *gin.Context) *AppError {
+	if requestID, exists := c.Get("request_id"); exists {
+		if id, ok := requestID.(string); ok {
+			e.RequestID = id
+		}
+	}
+	return e
+}
+
 // ClientResponse formats the error for client response
 func (e *AppError) ClientResponse() map[string]interface{} {
 	allowedTypes := map[ErrorType]bool{

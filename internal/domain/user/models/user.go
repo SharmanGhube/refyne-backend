@@ -1,5 +1,10 @@
 package user
 
+import (
+	"regexp"
+	"strings"
+)
+
 // User model represents a user in the system.
 // Took me 3 days to come up with this fucking model for no absolute reason
 type User struct {
@@ -13,7 +18,7 @@ type User struct {
 	IsActive   bool   `json:"is_active" db:"is_active"`
 	IsVerified bool   `json:"is_verified" db:"is_verified"`
 
-	TimeZone string `json:"timezone" db:"timezone"` // User's timezone for scheduling and notifications
+	// TimeZone string `json:"timezone" db:"timezone"` // User's timezone for scheduling and notifications
 
 	// Security fields
 	LastLoginAt string `json:"last_login_at" db:"last_login_at"` // Timestamp of the last login
@@ -28,4 +33,13 @@ type User struct {
 // Helper functions for struct
 func (u *User) IsActiveUser() bool {
 	return u.IsActive && u.IsVerified
+}
+
+// Validations
+func (u *User) HasValidEmail() bool {
+	email := strings.TrimSpace(u.Email)
+	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	regex := regexp.MustCompile(pattern)
+
+	return regex.MatchString(email) && len(email) <= 254
 }

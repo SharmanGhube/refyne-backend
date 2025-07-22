@@ -1,21 +1,32 @@
 package service
 
 import (
+	"github.com/gin-gonic/gin"
+	accountRepo "github.com/refynehq/refyne-backend/internal/domain/user/account/repository"
+	userModels "github.com/refynehq/refyne-backend/internal/domain/user/models"
+	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
 
 type UserAccountService interface {
+	CreateDefaultUserSettings(c *gin.Context, userID string) *errors.AppError
+	GetUserSettings(c *gin.Context, userID string) (*userModels.UserSettings, *errors.AppError)
+	UpdateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError
 }
 
 type userAccountService struct {
 	logger      *zap.Logger
 	serviceName string
+
+	// Repository Dependencies
+	userSettingsRepo accountRepo.UserSettingsRepository
 }
 
-func NewUserAccountService() UserAccountService {
+func NewUserAccountService(userSettingsRepo accountRepo.UserSettingsRepository) UserAccountService {
 	return &userAccountService{
-		logger:      logging.GetServiceLogger("UserAccountService"),
-		serviceName: "UserAccountService",
+		logger:           logging.GetServiceLogger("UserAccountService"),
+		serviceName:      "UserAccountService",
+		userSettingsRepo: userSettingsRepo,
 	}
 }

@@ -16,6 +16,8 @@ import (
 	auth2 "github.com/refynehq/refyne-backend/internal/domain/auth/handler"
 	"github.com/refynehq/refyne-backend/internal/domain/auth/services"
 	user2 "github.com/refynehq/refyne-backend/internal/domain/user"
+	"github.com/refynehq/refyne-backend/internal/domain/user/account/repository"
+	"github.com/refynehq/refyne-backend/internal/domain/user/account/service"
 	"github.com/refynehq/refyne-backend/internal/domain/user/repository"
 	"github.com/refynehq/refyne-backend/internal/shared/registry"
 	"github.com/refynehq/refyne-backend/internal/shared/river"
@@ -38,7 +40,9 @@ func InitializeApp() (*bootstrap.App, error) {
 		return nil, err
 	}
 	coreUserRepository := user.NewCoreUserRepository(db)
-	authService := auth.NewAuthService(coreUserRepository)
+	userSettingsRepository := account.NewUserSettingsRepository(db)
+	userAccountService := service.NewUserAccountService(userSettingsRepository)
+	authService := auth.NewAuthService(coreUserRepository, userAccountService)
 	authHandler := auth2.NewAuthHandler(authService)
 	handlerRegistry := registry.NewHandlerRegistry(authHandler)
 	engine := api.NewRouter(handlerRegistry)

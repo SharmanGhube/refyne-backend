@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	authRoutes "github.com/refynehq/refyne-backend/internal/domain/auth/routes"
 	"github.com/refynehq/refyne-backend/internal/shared/registry"
 )
@@ -27,7 +28,7 @@ func NewRouter(registry *registry.HandlerRegistry) *gin.Engine {
 	router.Use(gin.Recovery())
 
 	// Add request ID middleware using Google UUID
-	// router.Use(middlewares.RequestIDMiddleware())
+	router.Use(middlewares.RequestIDMiddleware())
 	// router.Use(middlewares.PrometheusMiddleware())
 
 	// Define your routes here

@@ -9,12 +9,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// UserSettingsRepository handles CRUD operations for user settings
-type UserSettingsRepository interface {
+// UserAccountRepository handles CRUD operations for user accounts
+type UserAccountRepository interface {
+	// CRUD operations for user settings
 	CreateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError
 	GetUserSettingsByUserID(c *gin.Context, userID string) (*userModels.UserSettings, *errors.AppError)
 	UpdateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError
 	DeleteUserSettings(c *gin.Context, userID string) *errors.AppError
+
+	// Additional methods can be added as needed
 }
 
 type userSettingsRepository struct {
@@ -23,7 +26,7 @@ type userSettingsRepository struct {
 	logger *zap.Logger
 }
 
-func NewUserSettingsRepository(db *sqlx.DB) UserSettingsRepository {
+func NewUserSettingsRepository(db *sqlx.DB) UserAccountRepository {
 	return &userSettingsRepository{
 		name:   "UserSettingsRepository",
 		db:     db,

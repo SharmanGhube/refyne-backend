@@ -20,10 +20,10 @@ type userAccountService struct {
 	serviceName string
 
 	// Repository Dependencies
-	userSettingsRepo accountRepo.UserSettingsRepository
+	userSettingsRepo accountRepo.UserAccountRepository
 }
 
-func NewUserAccountService(userSettingsRepo accountRepo.UserSettingsRepository) UserAccountService {
+func NewUserAccountService(userSettingsRepo accountRepo.UserAccountRepository) UserAccountService {
 	return &userAccountService{
 		logger:           logging.GetServiceLogger("UserAccountService"),
 		serviceName:      "UserAccountService",

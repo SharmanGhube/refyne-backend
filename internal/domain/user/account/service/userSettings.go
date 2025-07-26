@@ -1,4 +1,4 @@
-package service
+package account
 
 import (
 	"github.com/gin-gonic/gin"
@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *userAccountService) CreateDefaultUserSettings(c *gin.Context, userID string) *errors.AppError {
+func (s *UserAccountServiceImpl) CreateDefaultUserSettings(c *gin.Context, userID string) *errors.AppError {
 	s.logger.Info("Creating default user settings", zap.String("userID", userID))
 
 	// Create default user settings
@@ -25,7 +25,7 @@ func (s *userAccountService) CreateDefaultUserSettings(c *gin.Context, userID st
 	return nil
 }
 
-func (s *userAccountService) GetUserSettings(c *gin.Context, userID string) (*userModels.UserSettings, *errors.AppError) {
+func (s *UserAccountServiceImpl) GetUserSettings(c *gin.Context, userID string) (*userModels.UserSettings, *errors.AppError) {
 	s.logger.Info("Getting user settings", zap.String("userID", userID))
 
 	settings, appErr := s.userSettingsRepo.GetUserSettingsByUserID(c, userID)
@@ -39,7 +39,7 @@ func (s *userAccountService) GetUserSettings(c *gin.Context, userID string) (*us
 	return settings, nil
 }
 
-func (s *userAccountService) UpdateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError {
+func (s *UserAccountServiceImpl) UpdateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError {
 	s.logger.Info("Updating user settings", zap.String("userID", settings.UserID))
 
 	if appErr := s.userSettingsRepo.UpdateUserSettings(c, settings); appErr != nil {

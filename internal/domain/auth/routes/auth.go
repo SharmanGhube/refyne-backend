@@ -2,14 +2,15 @@ package auth
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/refynehq/refyne-backend/internal/shared/registry"
+	registry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
 func SetupAuthRoutes(router *gin.RouterGroup, registry *registry.HandlerRegistry) {
+	authhandler := registry.AuthHandler
 	authGroup := router.Group("/auth")
 	{
-		authGroup.POST("/login", registry.AuthHandler.Login)
-		authGroup.POST("/register", registry.AuthHandler.Register)
+		authGroup.POST("/login", authhandler.Login)
+		authGroup.POST("/register", authhandler.Register)
 		authGroup.POST("/refresh", nil)
 		authGroup.POST("/logout", nil)
 	}

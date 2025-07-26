@@ -14,12 +14,13 @@ import (
 	"github.com/refynehq/refyne-backend/internal/database"
 	auth3 "github.com/refynehq/refyne-backend/internal/domain/auth"
 	auth2 "github.com/refynehq/refyne-backend/internal/domain/auth/handler"
-	"github.com/refynehq/refyne-backend/internal/domain/auth/services"
+	"github.com/refynehq/refyne-backend/internal/domain/auth/service"
 	user2 "github.com/refynehq/refyne-backend/internal/domain/user"
+	account3 "github.com/refynehq/refyne-backend/internal/domain/user/account/handler"
 	"github.com/refynehq/refyne-backend/internal/domain/user/account/repository"
-	"github.com/refynehq/refyne-backend/internal/domain/user/account/service"
-	"github.com/refynehq/refyne-backend/internal/domain/user/repository"
-	"github.com/refynehq/refyne-backend/internal/shared/registry"
+	account2 "github.com/refynehq/refyne-backend/internal/domain/user/account/service"
+	"github.com/refynehq/refyne-backend/internal/domain/user/core/repository"
+	"github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 	"github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )
@@ -40,11 +41,14 @@ func InitializeApp() (*bootstrap.App, error) {
 		return nil, err
 	}
 	coreUserRepository := user.NewCoreUserRepository(db)
-	userSettingsRepository := account.NewUserSettingsRepository(db)
-	userAccountService := service.NewUserAccountService(userSettingsRepository)
+	userAccountRepository := account.NewUserSettingsRepository(db)
+	userAccountService := account2.NewUserAccountService(userAccountRepository)
 	authService := auth.NewAuthService(coreUserRepository, userAccountService)
 	authHandler := auth2.NewAuthHandler(authService)
-	handlerRegistry := registry.NewHandlerRegistry(authHandler)
+	authRegistry := auth3.NewAuthRegistry(authHandler)
+	userAccountHandler := account3.NewUserAccountHandler(userAccountService)
+	userHandlerRegistry := user2.NewUserHandlerRegistry(userAccountHandler)
+	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userHandlerRegistry)
 	engine := api.NewRouter(handlerRegistry)
 	workerDependancies := riverqueue.NewWorkerDependancies()
 	riverService, err := riverqueue.NewRiverService(pool, workerDependancies)
@@ -57,4 +61,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, registry.ProviderSet, user2.ProviderSet, auth3.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, user2.ProviderSet, auth3.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

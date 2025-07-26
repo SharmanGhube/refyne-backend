@@ -6,13 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
+	userErrors "github.com/refynehq/refyne-backend/internal/domain/user/core/repository/errors"
 	userModels "github.com/refynehq/refyne-backend/internal/domain/user/models"
-	userErrors "github.com/refynehq/refyne-backend/internal/domain/user/repository/errors"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"go.uber.org/zap"
 )
 
-func (r *coreUserRepository) CreateUser(c *gin.Context, user *userModels.User) *errors.AppError {
+func (r *CoreUserRepositoryImpl) CreateUser(c *gin.Context, user *userModels.User) *errors.AppError {
 	r.logger.Info("Creating New User", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	// Set timestamps
@@ -36,7 +36,7 @@ func (r *coreUserRepository) CreateUser(c *gin.Context, user *userModels.User) *
 	return nil
 }
 
-func (r *coreUserRepository) GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError) {
+func (r *CoreUserRepositoryImpl) GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError) {
 	r.logger.Info("Getting user by email", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	var user userModels.User
@@ -52,7 +52,7 @@ func (r *coreUserRepository) GetUserByEmail(c *gin.Context, email string) (*user
 	return &user, nil
 }
 
-func (r *coreUserRepository) GetUserByUsername(c *gin.Context, username string) (*userModels.User, *errors.AppError) {
+func (r *CoreUserRepositoryImpl) GetUserByUsername(c *gin.Context, username string) (*userModels.User, *errors.AppError) {
 	r.logger.Info("Getting user by username", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	var user userModels.User
@@ -68,7 +68,7 @@ func (r *coreUserRepository) GetUserByUsername(c *gin.Context, username string) 
 	return &user, nil
 }
 
-func (r *coreUserRepository) UserExistsByEmail(c *gin.Context, email string) (bool, *errors.AppError) {
+func (r *CoreUserRepositoryImpl) UserExistsByEmail(c *gin.Context, email string) (bool, *errors.AppError) {
 	r.logger.Info("Checking if user exists by email", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	var exists bool
@@ -81,7 +81,7 @@ func (r *coreUserRepository) UserExistsByEmail(c *gin.Context, email string) (bo
 	return exists, nil
 }
 
-func (r *coreUserRepository) UserExistsByUsername(c *gin.Context, username string) (bool, *errors.AppError) {
+func (r *CoreUserRepositoryImpl) UserExistsByUsername(c *gin.Context, username string) (bool, *errors.AppError) {
 	r.logger.Info("Checking if user exists by username", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	var exists bool

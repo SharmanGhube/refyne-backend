@@ -5,14 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	authErrors "github.com/refynehq/refyne-backend/internal/domain/auth/services/errors"
+	authErrors "github.com/refynehq/refyne-backend/internal/domain/auth/service/errors"
 	auth "github.com/refynehq/refyne-backend/internal/domain/auth/utils"
 	userModels "github.com/refynehq/refyne-backend/internal/domain/user/models"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"go.uber.org/zap"
 )
 
-func (s *authService) RegisterUser(c *gin.Context, username, password, email string) *errors.AppError {
+func (s *AuthServiceImpl) RegisterUser(c *gin.Context, username, password, email string) *errors.AppError {
 	s.logger.Info("Registering User", zap.String("username", username), zap.String("email", email))
 
 	// Input validation
@@ -38,7 +38,7 @@ func (s *authService) RegisterUser(c *gin.Context, username, password, email str
 	}
 
 	// Check if user already exists by email
-	emailExists, appErr := s.coreUserRepo.UserExistsByEmail(c, email)
+	emailExists, appErr := s.CoreUserRepo.UserExistsByEmail(c, email)
 	if appErr != nil {
 		s.logger.Error("Failed to check if user exists by email", zap.Error(appErr))
 		return appErr
@@ -49,7 +49,7 @@ func (s *authService) RegisterUser(c *gin.Context, username, password, email str
 	}
 
 	// Check if user already exists by username
-	usernameExists, appErr := s.coreUserRepo.UserExistsByUsername(c, username)
+	usernameExists, appErr := s.CoreUserRepo.UserExistsByUsername(c, username)
 	if appErr != nil {
 		s.logger.Error("Failed to check if user exists by username", zap.Error(appErr))
 		return appErr
@@ -82,7 +82,7 @@ func (s *authService) RegisterUser(c *gin.Context, username, password, email str
 	}
 
 	// Save User to the database
-	if appErr := s.coreUserRepo.CreateUser(c, user); appErr != nil {
+	if appErr := s.CoreUserRepo.CreateUser(c, user); appErr != nil {
 		s.logger.Error("Failed to create user", zap.Error(appErr))
 		return authErrors.NewUserCreationFailedError(c, appErr)
 	}
@@ -90,7 +90,7 @@ func (s *authService) RegisterUser(c *gin.Context, username, password, email str
 	s.logger.Info("User registered successfully", zap.String("userID", userID), zap.String("username", username))
 
 	// Create default user settings
-	if appErr := s.userAccountService.CreateDefaultUserSettings(c, userID); appErr != nil {
+	if appErr := s.UserAccountService.CreateDefaultUserSettings(c, userID); appErr != nil {
 		s.logger.Error("Failed to create default user settings",
 			zap.String("userID", userID),
 			zap.Error(appErr))
@@ -107,7 +107,7 @@ func (s *authService) RegisterUser(c *gin.Context, username, password, email str
 	return nil
 }
 
-func (s *authService) LoginUser(c *gin.Context, username, password string) (string, *errors.AppError) {
+func (s *AuthServiceImpl) LoginUser(c *gin.Context, username, password string) (string, *errors.AppError) {
 	// Here you would typically check the user's credentials against the database.
 	// For simplicity, we are just logging the login attempt.
 	s.logger.Info("Logging in user", zap.String("username", username))

@@ -1,4 +1,4 @@
-package registry
+package handlerregistry
 
 import "github.com/google/wire"
 

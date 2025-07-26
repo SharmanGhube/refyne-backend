@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/gin-gonic/gin"
-	authServices "github.com/refynehq/refyne-backend/internal/domain/auth/services"
+	auth "github.com/refynehq/refyne-backend/internal/domain/auth/service"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
@@ -12,18 +12,18 @@ type AuthHandler interface {
 	Login(c *gin.Context)
 }
 
-type authHandler struct {
+type AuthHandlerImpl struct {
 	name   string
 	logger *zap.Logger
 
 	// Dependencies
-	authService authServices.AuthService
+	authService auth.AuthService
 }
 
-func NewAuthHandler(authService authServices.AuthService) AuthHandler {
-	return &authHandler{
+func NewAuthHandler(authService auth.AuthService) AuthHandler {
+	return &AuthHandlerImpl{
 		name:        "AuthHandler",
-		logger:      logging.GetHandlerLogger("AuthHandler"),
+		logger:      logging.GetHandlerLogger("authHandler"),
 		authService: authService,
 	}
 }

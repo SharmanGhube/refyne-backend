@@ -16,7 +16,7 @@ type RegisterRequest struct {
 }
 
 // Handler for user registration
-func (h *authHandler) Register(c *gin.Context) {
+func (h *AuthHandlerImpl) Register(c *gin.Context) {
 	var req RegisterRequest
 
 	// Bind and validate JSON request
@@ -65,7 +65,7 @@ type LoginRequest struct {
 }
 
 // Handler for user login
-func (h *authHandler) Login(c *gin.Context) {
+func (h *AuthHandlerImpl) Login(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "User logged in successfully",
 	})

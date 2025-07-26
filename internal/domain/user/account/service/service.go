@@ -1,4 +1,4 @@
-package service
+package account
 
 import (
 	"github.com/gin-gonic/gin"
@@ -15,7 +15,7 @@ type UserAccountService interface {
 	UpdateUserSettings(c *gin.Context, settings *userModels.UserSettings) *errors.AppError
 }
 
-type userAccountService struct {
+type UserAccountServiceImpl struct {
 	logger      *zap.Logger
 	serviceName string
 
@@ -24,7 +24,7 @@ type userAccountService struct {
 }
 
 func NewUserAccountService(userSettingsRepo accountRepo.UserAccountRepository) UserAccountService {
-	return &userAccountService{
+	return &UserAccountServiceImpl{
 		logger:           logging.GetServiceLogger("UserAccountService"),
 		serviceName:      "UserAccountService",
 		userSettingsRepo: userSettingsRepo,

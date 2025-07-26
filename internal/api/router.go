@@ -4,13 +4,11 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/refynehq/refyne-backend/internal/api/middlewares"
-	authRoutes "github.com/refynehq/refyne-backend/internal/domain/auth/routes"
-	"github.com/refynehq/refyne-backend/internal/shared/registry"
+	auth "github.com/refynehq/refyne-backend/internal/domain/auth/routes"
+	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
-func NewRouter(registry *registry.HandlerRegistry) *gin.Engine {
+func NewRouter(registry *handlerregistry.HandlerRegistry) *gin.Engine {
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		env = "development"
@@ -24,20 +22,14 @@ func NewRouter(registry *registry.HandlerRegistry) *gin.Engine {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	router.Use(gin.LoggerWithWriter(gin.DefaultWriter))
+	router.Use(gin.LoggerWithWriter(gin.DefaultWriter, "/health", "/metrics"))
 	router.Use(gin.Recovery())
 
-	// Add request ID middleware using Google UUID
-	router.Use(middlewares.RequestIDMiddleware())
-	// router.Use(middlewares.PrometheusMiddleware())
-
-	// Define your routes here
+	// Load routes
 	apiRoutes := router.Group("/api/v1")
 	{
-		authRoutes.SetupAuthRoutes(apiRoutes, registry)
+		auth.SetupAuthRoutes(apiRoutes, registry)
 	}
-
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	return router
 }

@@ -2,6 +2,7 @@ package account
 
 import (
 	"github.com/google/wire"
+	accountHandler "github.com/refynehq/refyne-backend/internal/domain/user/account/handler"
 	accountRepository "github.com/refynehq/refyne-backend/internal/domain/user/account/repository"
 	accountService "github.com/refynehq/refyne-backend/internal/domain/user/account/service"
 )
@@ -9,6 +10,7 @@ import (
 var ProviderSet = wire.NewSet(
 
 	// Handlers go here
+	accountHandler.NewUserAccountHandler,
 
 	// Services go here
 	accountService.NewUserAccountService,

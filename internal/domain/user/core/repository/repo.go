@@ -9,9 +9,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// This repository will have Core CRUD operations for the user domain.
-// I love torturing myself, gives me the high without the need for drugs.
-
 type CoreUserRepository interface {
 	CreateUser(c *gin.Context, user *userModels.User) *errors.AppError
 	GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError)
@@ -20,14 +17,14 @@ type CoreUserRepository interface {
 	UserExistsByUsername(c *gin.Context, username string) (bool, *errors.AppError)
 }
 
-type coreUserRepository struct {
+type CoreUserRepositoryImpl struct {
 	name   string
 	db     *sqlx.DB
 	logger *zap.Logger
 }
 
 func NewCoreUserRepository(db *sqlx.DB) CoreUserRepository {
-	return &coreUserRepository{
+	return &CoreUserRepositoryImpl{
 		name:   "CoreUserRepository",
 		db:     db,
 		logger: logging.GetRepositoryLogger("CoreUserRepository"),

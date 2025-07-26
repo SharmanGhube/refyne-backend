@@ -10,7 +10,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/database"
 	"github.com/refynehq/refyne-backend/internal/domain/auth"
 	"github.com/refynehq/refyne-backend/internal/domain/user"
-	"github.com/refynehq/refyne-backend/internal/shared/registry"
+	registry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )

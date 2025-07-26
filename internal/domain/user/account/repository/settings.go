@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
+	repoErrors "github.com/refynehq/refyne-backend/internal/domain/user/account/repository/errors"
 	userModels "github.com/refynehq/refyne-backend/internal/domain/user/models"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"go.uber.org/zap"
@@ -27,7 +28,7 @@ func (r *userSettingsRepository) CreateUserSettings(c *gin.Context, settings *us
 	_, err := r.db.NamedExecContext(c.Request.Context(), insertUserSettingsQuery, settings)
 	if err != nil {
 		r.logger.Error("Failed to create user settings", zap.Error(err))
-		return NewUserSettingsDatabaseError(c, "CreateUserSettings", err)
+		return repoErrors.NewUserSettingsDatabaseError(c, "CreateUserSettings", err)
 	}
 
 	r.logger.Info("User settings created successfully", zap.String("userID", settings.UserID))
@@ -43,10 +44,10 @@ func (r *userSettingsRepository) GetUserSettingsByUserID(c *gin.Context, userID 
 	err := r.db.GetContext(c.Request.Context(), &settings, selectUserSettingsByUserIDQuery, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, NewUserSettingsNotFoundError(c, userID)
+			return nil, repoErrors.NewUserSettingsNotFoundError(c, userID)
 		}
 		r.logger.Error("Failed to get user settings by user ID", zap.Error(err))
-		return nil, NewUserSettingsDatabaseError(c, "GetUserSettingsByUserID", err)
+		return nil, repoErrors.NewUserSettingsDatabaseError(c, "GetUserSettingsByUserID", err)
 	}
 
 	return &settings, nil
@@ -65,17 +66,17 @@ func (r *userSettingsRepository) UpdateUserSettings(c *gin.Context, settings *us
 	result, err := r.db.NamedExecContext(c.Request.Context(), updateUserSettingsQuery, settings)
 	if err != nil {
 		r.logger.Error("Failed to update user settings", zap.Error(err))
-		return NewUserSettingsDatabaseError(c, "UpdateUserSettings", err)
+		return repoErrors.NewUserSettingsDatabaseError(c, "UpdateUserSettings", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		r.logger.Error("Failed to get rows affected", zap.Error(err))
-		return NewUserSettingsDatabaseError(c, "UpdateUserSettings-RowsAffected", err)
+		return repoErrors.NewUserSettingsDatabaseError(c, "UpdateUserSettings-RowsAffected", err)
 	}
 
 	if rowsAffected == 0 {
-		return NewUserSettingsNotFoundError(c, settings.UserID)
+		return repoErrors.NewUserSettingsNotFoundError(c, settings.UserID)
 	}
 
 	r.logger.Info("User settings updated successfully", zap.String("userID", settings.UserID))
@@ -91,17 +92,17 @@ func (r *userSettingsRepository) DeleteUserSettings(c *gin.Context, userID strin
 	result, err := r.db.ExecContext(c.Request.Context(), deleteUserSettingsQuery, userID)
 	if err != nil {
 		r.logger.Error("Failed to delete user settings", zap.Error(err))
-		return NewUserSettingsDatabaseError(c, "DeleteUserSettings", err)
+		return repoErrors.NewUserSettingsDatabaseError(c, "DeleteUserSettings", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		r.logger.Error("Failed to get rows affected", zap.Error(err))
-		return NewUserSettingsDatabaseError(c, "DeleteUserSettings-RowsAffected", err)
+		return repoErrors.NewUserSettingsDatabaseError(c, "DeleteUserSettings-RowsAffected", err)
 	}
 
 	if rowsAffected == 0 {
-		return NewUserSettingsNotFoundError(c, userID)
+		return repoErrors.NewUserSettingsNotFoundError(c, userID)
 	}
 
 	r.logger.Info("User settings deleted successfully", zap.String("userID", userID))

@@ -257,7 +257,7 @@ func getMigrationsPath() string {
 	}
 
 	// Convert Windows path to proper file:// URL format
-	path := filepath.Join(workDir, "/internal/database/migrations")
+	path := filepath.Join(workDir, "internal", "database", "migrations", "sql")
 
 	// Replace backslashes with forward slashes
 	path = filepath.ToSlash(path)

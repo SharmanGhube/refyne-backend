@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	auth "github.com/refynehq/refyne-backend/internal/domain/auth/routes"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
@@ -25,10 +24,12 @@ func NewRouter(registry *handlerregistry.HandlerRegistry) *gin.Engine {
 	router.Use(gin.LoggerWithWriter(gin.DefaultWriter, "/health", "/metrics"))
 	router.Use(gin.Recovery())
 
-	// Load routes
-	apiRoutes := router.Group("/api/v1")
+	// Register Routes
+	apiRoutes := router.Group("/api")
 	{
-		auth.SetupAuthRoutes(apiRoutes, registry)
+		apiRoutes.GET("/health", func(ctx *gin.Context) {
+			ctx.JSON(200, gin.H{"status": "ok"})
+		})
 	}
 
 	return router

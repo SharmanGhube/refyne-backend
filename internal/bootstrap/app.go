@@ -20,25 +20,34 @@ import (
 
 type App struct {
 	config       *config.Config
-	db           *sqlx.DB
-	dbPool       *pgxpool.Pool
+	DB           *sqlx.DB
+	DBPool       *pgxpool.Pool
 	router       *gin.Engine
 	server       *http.Server
 	logger       *zap.Logger
 	riverService *riverqueue.RiverService
-
-	version string
+	Version      string
 }
 
-func NewApp(cfg *config.Config, db *sqlx.DB, dbPool *pgxpool.Pool, router *gin.Engine, riverService *riverqueue.RiverService) *App {
-	return &App{
+func NewApp(
+	cfg *config.Config,
+	db *sqlx.DB,
+	dbPool *pgxpool.Pool,
+	router *gin.Engine,
+	logger *zap.Logger,
+	riverService *riverqueue.RiverService,
+) (*App, error) {
+	app := &App{
 		config:       cfg,
-		db:           db,
-		dbPool:       dbPool,
+		DB:           db,
+		DBPool:       dbPool,
 		router:       router,
+		logger:       logger,
 		riverService: riverService,
-		version:      os.Getenv("APP_VERSION"),
+		Version:      os.Getenv("REFYNE_VERSION"),
 	}
+
+	return app, nil
 }
 
 func (a *App) Start(ctx context.Context) error {
@@ -49,7 +58,7 @@ func (a *App) Start(ctx context.Context) error {
 
 	defer logging.Close()
 	a.logger = logging.GetLogger()
-	a.logger.Info("Starting application", zap.String("version", a.version), zap.String("environment", a.config.Environment))
+	a.logger.Info("Starting application", zap.String("version", a.Version), zap.String("environment", a.config.Environment))
 
 	// Run Migrations
 	if err := a.runMigrations(); err != nil {
@@ -114,16 +123,16 @@ func (a *App) Stop(ctx context.Context) error {
 	}
 
 	// Close database pool
-	if a.dbPool != nil {
+	if a.DBPool != nil {
 		a.logger.Info("Closing database pool")
-		a.dbPool.Close()
+		a.DBPool.Close()
 		a.logger.Info("Database pool closed")
 	}
 
 	// Close database connection
-	if a.db != nil {
+	if a.DB != nil {
 		a.logger.Info("Closing database connection")
-		if err := a.db.Close(); err != nil {
+		if err := a.DB.Close(); err != nil {
 			a.logger.Error("Failed to close database connection", zap.Error(err))
 			return err
 		}
@@ -146,7 +155,7 @@ func (a *App) runMigrations() error {
 	a.logger.Info("Starting database migration check")
 
 	if a.config.Environment == "production" {
-		if !a.config.AutoMigrate {
+		if !a.config.Database.AutoMigrate {
 			a.logger.Info("Skipping migrations in production", zap.Bool("auto_migrate", false))
 			return nil
 		}

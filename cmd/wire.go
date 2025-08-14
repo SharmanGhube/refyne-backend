@@ -7,7 +7,15 @@ import (
 	"github.com/refynehq/refyne-backend/internal/api"
 	"github.com/refynehq/refyne-backend/internal/bootstrap"
 	"github.com/refynehq/refyne-backend/internal/config"
-	database "github.com/refynehq/refyne-backend/internal/database"
+	"github.com/refynehq/refyne-backend/internal/database"
+	ai "github.com/refynehq/refyne-backend/internal/domains/ai"
+	auth "github.com/refynehq/refyne-backend/internal/domains/auth"
+	domaincontext "github.com/refynehq/refyne-backend/internal/domains/context"
+	email "github.com/refynehq/refyne-backend/internal/domains/email"
+	notification "github.com/refynehq/refyne-backend/internal/domains/notification"
+	otto "github.com/refynehq/refyne-backend/internal/domains/otto"
+	user "github.com/refynehq/refyne-backend/internal/domains/user"
+	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
@@ -24,6 +32,14 @@ var AppSet = wire.NewSet(
 	handlerregistry.ProviderSet,
 
 	// Domain Layer
+	ai.ProviderSet,
+	auth.ProviderSet,
+	domaincontext.ProviderSet,
+	email.ProviderSet,
+	notification.ProviderSet,
+	otto.ProviderSet,
+	user.ProviderSet,
+	workspace.ProviderSet,
 
 	// API Layer
 	api.ProviderSet,

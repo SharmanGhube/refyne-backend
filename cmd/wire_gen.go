@@ -12,6 +12,14 @@ import (
 	"github.com/refynehq/refyne-backend/internal/bootstrap"
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database"
+	"github.com/refynehq/refyne-backend/internal/domains/ai"
+	"github.com/refynehq/refyne-backend/internal/domains/auth"
+	"github.com/refynehq/refyne-backend/internal/domains/context"
+	"github.com/refynehq/refyne-backend/internal/domains/email"
+	"github.com/refynehq/refyne-backend/internal/domains/notification"
+	"github.com/refynehq/refyne-backend/internal/domains/otto"
+	"github.com/refynehq/refyne-backend/internal/domains/user"
+	"github.com/refynehq/refyne-backend/internal/domains/workspace"
 	"github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 	"github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
@@ -32,7 +40,15 @@ func InitializeApp() (*bootstrap.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	handlerRegistry := handlerregistry.NewHandlerRegistry()
+	authRegistry := auth.NewAuthRegistry()
+	userRegistry := user.NewUserRegistry()
+	aiRegistry := ai.NewAIRegistry()
+	contextRegistry := context.NewContextRegistry()
+	emailRegistry := email.NewEmailRegistry()
+	notificationRegistry := notification.NewNotificationRegistry()
+	ottoRegistry := otto.NewOttoRegistry()
+	workspaceRegistry := workspace.NewWorkspaceRegistry()
+	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, notificationRegistry, ottoRegistry, workspaceRegistry)
 	engine := api.NewRouter(handlerRegistry)
 	logger := logging.NewLogger()
 	workerDependancies := riverqueue.NewWorkerDependancies()
@@ -49,4 +65,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, user.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

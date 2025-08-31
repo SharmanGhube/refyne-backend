@@ -20,10 +20,10 @@ const (
 	CodeUserNotVerified = "USER_NOT_VERIFIED"
 
 	// OTP errors
-	CodeInvalidOTP      = "INVALID_OTP"
-	CodeOTPNotFound     = "OTP_NOT_FOUND"
-	CodeOTPExpired      = "OTP_EXPIRED"
-	CodeInternalServer  = "INTERNAL_SERVER_ERROR"
+	CodeInvalidOTP     = "INVALID_OTP"
+	CodeOTPNotFound    = "OTP_NOT_FOUND"
+	CodeOTPExpired     = "OTP_EXPIRED"
+	CodeInternalServer = "INTERNAL_SERVER_ERROR"
 
 	// Token errors
 	CodeInvalidToken           = "INVALID_TOKEN"

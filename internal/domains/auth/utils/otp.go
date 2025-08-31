@@ -48,7 +48,7 @@ func (om *OTPManager) GenerateOTP() (string, error) {
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
-	
+
 	// Convert to 6-digit number
 	num := int(bytes[0])<<16 | int(bytes[1])<<8 | int(bytes[2])
 	otp := fmt.Sprintf("%06d", num%1000000)
@@ -59,10 +59,10 @@ func (om *OTPManager) GenerateOTP() (string, error) {
 func (om *OTPManager) StoreOTP(email, otp string) {
 	om.mu.Lock()
 	defer om.mu.Unlock()
-	
+
 	// Invalidate any existing OTP for this email
 	delete(om.otps, email)
-	
+
 	// Store new OTP
 	om.otps[email] = &OTPEntry{
 		OTP:       otp,
@@ -76,12 +76,12 @@ func (om *OTPManager) StoreOTP(email, otp string) {
 func (om *OTPManager) ValidateOTP(c *gin.Context, email, otp string) *errors.AppError {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
-	
+
 	entry, exists := om.otps[email]
 	if !exists {
 		return serviceErrors.NewOTPNotFoundError(c, email)
 	}
-	
+
 	// Check if OTP has expired
 	if time.Now().After(entry.ExpiresAt) {
 		// Clean up expired OTP
@@ -90,15 +90,15 @@ func (om *OTPManager) ValidateOTP(c *gin.Context, email, otp string) *errors.App
 			delete(om.otps, email)
 			om.mu.Unlock()
 		}()
-		
+
 		return serviceErrors.NewOTPExpiredError(c, email)
 	}
-	
+
 	// Validate OTP
 	if entry.OTP != otp {
 		return serviceErrors.NewInvalidOTPError(c, "Invalid OTP")
 	}
-	
+
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (om *OTPManager) InvalidateOTP(email string) {
 func (om *OTPManager) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute) // Run cleanup every 5 minutes
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		om.mu.Lock()
 		now := time.Now()
@@ -130,7 +130,7 @@ func (om *OTPManager) cleanup() {
 func (om *OTPManager) GetOTPInfo(email string) *OTPEntry {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
-	
+
 	if entry, exists := om.otps[email]; exists {
 		return &OTPEntry{
 			OTP:       entry.OTP,

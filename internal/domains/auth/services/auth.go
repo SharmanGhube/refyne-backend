@@ -205,13 +205,13 @@ func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) (st
 		s.logger.Warn("Attempt to request OTP for unverified account", zap.String("email", email))
 		return "", serviceErrors.NewUserNotVerifiedError(c, email)
 	}
-	
+
 	// Check if user is active
 	if !user.IsActive {
 		s.logger.Warn("Attempt to request OTP for inactive account", zap.String("email", email))
 		return "", serviceErrors.NewUserNotActiveError(c, email)
 	}
-	
+
 	// Check if user status is active
 	if user.Status != "active" {
 		s.logger.Warn("Attempt to request OTP for account with non-active status", zap.String("email", email), zap.String("status", user.Status))
@@ -269,13 +269,13 @@ func (s *AuthServiceImpl) VerifyOTPAndLogin(c *gin.Context, email, otp string) (
 		s.logger.Warn("Attempt to login to unverified account via OTP", zap.String("email", email))
 		return nil, nil, serviceErrors.NewUserNotVerifiedError(c, email)
 	}
-	
+
 	// Check if user is active
 	if !user.IsActive {
 		s.logger.Warn("Attempt to login to inactive account via OTP", zap.String("email", email))
 		return nil, nil, serviceErrors.NewUserNotActiveError(c, email)
 	}
-	
+
 	// Check if user status is active
 	if user.Status != "active" {
 		s.logger.Warn("Attempt to login to account with non-active status via OTP", zap.String("email", email), zap.String("status", user.Status))
@@ -331,7 +331,7 @@ func (s *AuthServiceImpl) RefreshToken(c *gin.Context, refreshToken string) (*au
 
 	// Verify the user ID matches (additional security check)
 	if user.ID != userID {
-		s.logger.Warn("User ID mismatch in token", 
+		s.logger.Warn("User ID mismatch in token",
 			zap.String("tokenUserID", userID),
 			zap.String("dbUserID", user.ID))
 		return nil, serviceErrors.NewInvalidTokenError(c, "Invalid token")
@@ -387,7 +387,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 
 	// Verify user ID matches (security check)
 	if user.ID != userID {
-		s.logger.Warn("User ID mismatch in verification token", 
+		s.logger.Warn("User ID mismatch in verification token",
 			zap.String("tokenUserID", userID),
 			zap.String("dbUserID", user.ID))
 		return serviceErrors.NewInvalidTokenError(c, "Invalid verification token")
@@ -404,9 +404,9 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 		return appErr
 	}
 
-	s.logger.Info("User account verified successfully", 
+	s.logger.Info("User account verified successfully",
 		zap.String("userID", userID),
 		zap.String("email", user.Email))
-	
+
 	return nil
 }

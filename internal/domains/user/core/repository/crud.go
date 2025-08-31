@@ -1,0 +1,168 @@
+package user
+
+import (
+	"database/sql"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/refynehq/refyne-backend/internal/api/middlewares"
+	coreRepoErrors "github.com/refynehq/refyne-backend/internal/domains/user/core/repository/errors"
+	userModels "github.com/refynehq/refyne-backend/internal/domains/user/models"
+	errors "github.com/refynehq/refyne-backend/pkg/error"
+	"go.uber.org/zap"
+)
+
+func (r *CoreUserRepositoryImpl) CreateUser(c *gin.Context, user *userModels.User) *errors.AppError {
+	r.logger.Info("Creating new User", zap.String("requestID", middlewares.GetRequestID(c)))
+
+	// Set timestamps
+	now := time.Now()
+	user.CreatedAt = now
+	user.UpdatedAt = now
+
+	// Execute insert query
+	_, err := r.db.NamedExecContext(c.Request.Context(), insertUserQuery, user)
+	if err != nil {
+		r.logger.Error("Failed to create user", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(err))
+		return coreRepoErrors.NewDatabaseError(c, "CreateUser", err)
+	}
+
+	r.logger.Info("User created successfully", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", user.ID))
+	return nil
+}
+
+func (r *CoreUserRepositoryImpl) GetUserByID(c *gin.Context, userID string) (*userModels.User, *errors.AppError) {
+	r.logger.Info("Getting user by ID", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+
+	var user userModels.User
+	err := r.db.GetContext(c.Request.Context(), &user, selectUserByIDQuery, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.logger.Warn("User not found", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+			return nil, nil // Return nil user with no error to indicate user not found
+		}
+		r.logger.Error("Failed to get user by ID", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID), zap.Error(err))
+		return nil, coreRepoErrors.NewDatabaseError(c, "GetUserByID", err)
+	}
+
+	r.logger.Info("User retrieved successfully", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+	return &user, nil
+}
+
+func (r *CoreUserRepositoryImpl) GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError) {
+	r.logger.Info("Getting user by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
+
+	var user userModels.User
+	err := r.db.GetContext(c.Request.Context(), &user, selectUserByEmailQuery, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.logger.Warn("User not found by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
+			return nil, nil // Return nil user with no error to indicate user not found
+		}
+		r.logger.Error("Failed to get user by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email), zap.Error(err))
+		return nil, coreRepoErrors.NewDatabaseError(c, "GetUserByEmail", err)
+	}
+
+	r.logger.Info("User retrieved successfully by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
+	return &user, nil
+}
+
+func (r *CoreUserRepositoryImpl) UserExistsByID(c *gin.Context, userID string) (bool, *errors.AppError) {
+	r.logger.Info("Checking if user exists by ID", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+
+	var count int
+	err := r.db.GetContext(c.Request.Context(), &count, "SELECT COUNT(*) FROM users WHERE id = $1 AND deleted_at IS NULL", userID)
+	if err != nil {
+		r.logger.Error("Failed to check user existence by ID", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID), zap.Error(err))
+		return false, coreRepoErrors.NewDatabaseError(c, "UserExistsByID", err)
+	}
+
+	exists := count > 0
+	r.logger.Info("User existence check completed", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID), zap.Bool("exists", exists))
+	return exists, nil
+}
+
+func (r *CoreUserRepositoryImpl) UserExistsByEmail(c *gin.Context, email string) (bool, *errors.AppError) {
+	r.logger.Info("Checking if user exists by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
+
+	var count int
+	err := r.db.GetContext(c.Request.Context(), &count, "SELECT COUNT(*) FROM users WHERE email = $1 AND deleted_at IS NULL", email)
+	if err != nil {
+		r.logger.Error("Failed to check user existence by email", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email), zap.Error(err))
+		return false, coreRepoErrors.NewDatabaseError(c, "UserExistsByEmail", err)
+	}
+
+	exists := count > 0
+	r.logger.Info("User existence check completed", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email), zap.Bool("exists", exists))
+	return exists, nil
+}
+
+func (r *CoreUserRepositoryImpl) UserExistsByUsername(c *gin.Context, username string) (bool, *errors.AppError) {
+	r.logger.Info("Checking if user exists by username", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("username", username))
+
+	var count int
+	err := r.db.GetContext(c.Request.Context(), &count, "SELECT COUNT(*) FROM users WHERE username = $1 AND deleted_at IS NULL", username)
+	if err != nil {
+		r.logger.Error("Failed to check user existence by username", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("username", username), zap.Error(err))
+		return false, coreRepoErrors.NewDatabaseError(c, "UserExistsByUsername", err)
+	}
+
+	exists := count > 0
+	r.logger.Info("User existence check completed", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("username", username), zap.Bool("exists", exists))
+	return exists, nil
+}
+
+func (r *CoreUserRepositoryImpl) UpdateLastLogin(c *gin.Context, userID string, ipAddress *string, userAgent *string) *errors.AppError {
+	r.logger.Info("Updating last login info", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+
+	// Use a simple query with the defined query constant
+	_, err := r.db.ExecContext(c.Request.Context(), updateUserLoginInfoQuery, userID, time.Now(), ipAddress)
+	if err != nil {
+		r.logger.Error("Failed to update last login info", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID), zap.Error(err))
+		return coreRepoErrors.NewDatabaseError(c, "UpdateLastLogin", err)
+	}
+
+	// Note: userAgent parameter is ignored as the database doesn't have a user_agent field
+	_ = userAgent // Suppress unused parameter warning
+
+	r.logger.Info("Last login info updated successfully", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+	return nil
+}
+
+// VerifyUser updates user verification status
+func (r *CoreUserRepositoryImpl) VerifyUser(c *gin.Context, userID string) *errors.AppError {
+	r.logger.Info("Verifying user",
+		zap.String("userID", userID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+
+	// Execute update query to verify user
+	result, err := r.db.ExecContext(c.Request.Context(), verifyUserQuery, userID)
+	if err != nil {
+		r.logger.Error("Failed to verify user",
+			zap.Error(err),
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "VerifyUser", err)
+	}
+
+	// Check if any rows were affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.logger.Error("Failed to get rows affected",
+			zap.Error(err),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "VerifyUser", err)
+	}
+
+	if rowsAffected == 0 {
+		r.logger.Warn("No user found for verification",
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewUserNotFoundError(c, "User not found for verification")
+	}
+
+	r.logger.Info("User verified successfully",
+		zap.String("userID", userID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+	return nil
+}

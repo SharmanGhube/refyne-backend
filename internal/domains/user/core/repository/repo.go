@@ -22,6 +22,8 @@ type CoreUserRepository interface {
 
 	UpdateLastLogin(c *gin.Context, userID string, ipAddress *string, userAgent *string) *errors.AppError
 	VerifyUser(c *gin.Context, userID string) *errors.AppError
+	UpdatePassword(c *gin.Context, userID, hashedPassword string) *errors.AppError
+	GetDB() *sqlx.DB
 }
 
 type CoreUserRepositoryImpl struct {

@@ -17,6 +17,11 @@ func SetupAuthRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerR
 		authGroup.POST("/refresh", AuthHandler.RefreshToken)
 		authGroup.POST("/verify", AuthHandler.VerifyAccount)
 
+		// Password reset routes (public)
+		authGroup.POST("/forgot-password", AuthHandler.ForgotPassword)
+		authGroup.POST("/reset-password", AuthHandler.ResetPassword)
+		authGroup.POST("/validate-reset-token", AuthHandler.ValidateResetToken)
+
 		// Protected routes (authentication required)
 		protected := authGroup.Group("")
 		protected.Use(middlewares.AuthMiddleware())

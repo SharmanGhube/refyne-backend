@@ -15,6 +15,11 @@ type AuthHandler interface {
 	VerifyAccount(c *gin.Context)
 	Logout(c *gin.Context)
 	LogoutAllDevices(c *gin.Context)
+
+	// Password Reset
+	ForgotPassword(c *gin.Context)
+	ResetPassword(c *gin.Context)
+	ValidateResetToken(c *gin.Context)
 }
 
 type AuthHandlerImpl struct {

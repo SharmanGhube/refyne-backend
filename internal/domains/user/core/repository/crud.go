@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	coreRepoErrors "github.com/refynehq/refyne-backend/internal/domains/user/core/repository/errors"
 	userModels "github.com/refynehq/refyne-backend/internal/domains/user/models"
@@ -165,4 +166,44 @@ func (r *CoreUserRepositoryImpl) VerifyUser(c *gin.Context, userID string) *erro
 		zap.String("userID", userID),
 		zap.String("requestID", middlewares.GetRequestID(c)))
 	return nil
+}
+
+// UpdatePassword updates a user's password
+func (r *CoreUserRepositoryImpl) UpdatePassword(c *gin.Context, userID, hashedPassword string) *errors.AppError {
+	r.logger.Info("Updating user password", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
+
+	query := `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+	result, err := r.db.ExecContext(c.Request.Context(), query, hashedPassword, userID)
+	if err != nil {
+		r.logger.Error("Failed to update password",
+			zap.String("requestID", middlewares.GetRequestID(c)),
+			zap.String("userID", userID),
+			zap.Error(err))
+		return coreRepoErrors.NewDatabaseError(c, "UpdatePassword", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.logger.Error("Failed to get rows affected",
+			zap.Error(err),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "UpdatePassword", err)
+	}
+
+	if rowsAffected == 0 {
+		r.logger.Warn("No user found for password update",
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewUserNotFoundError(c, "User not found for password update")
+	}
+
+	r.logger.Info("Password updated successfully",
+		zap.String("userID", userID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+	return nil
+}
+
+// GetDB returns the database connection for direct access when needed
+func (r *CoreUserRepositoryImpl) GetDB() *sqlx.DB {
+	return r.db
 }

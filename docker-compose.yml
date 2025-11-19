@@ -1,0 +1,111 @@
+version: "3.8"
+services:
+  db:
+    container_name: refyne_db
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: Yash232107
+      POSTGRES_DB: refyneDB
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./DBdata:/var/lib/postgresql/data
+    networks:
+      - monitoring
+    
+  pgadmin:
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: yashpatil.7426@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: Yash232107
+    ports:
+      - "5050:80"
+    volumes:
+      - ./pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - monitoring
+
+  # redis:
+  #   container_name: refyne_redis
+  #   image: redis:7-alpine
+  #   restart: always
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - ./redis_data:/data
+  #   command: redis-server --appendonly yes
+
+  # redisinsight:
+  #   container_name: redisinsight_container
+  #   image: redislabs/redisinsight:latest
+  #   restart: always
+  #   ports:
+  #     - "5540:5540"
+  #   volumes:
+  #     - ./redisinsight_data:/db
+  #   depends_on:
+  #     - redis
+
+  # riverui:
+  #   container_name: riverui_container
+  #   image: ghcr.io/riverqueue/riverui:latest
+  #   restart: always
+  #   ports:
+  #     - "9090:8080"
+  #   environment:
+  #     - DATABASE_URL=postgresql://root:Yash232107@db:5432/refyneDB?sslmode=disable
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - monitoring
+
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./prometheus:/etc/prometheus
+  #   ports:
+  #     - "9091:9090"
+  #   networks:
+  #     - monitoring
+
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./grafana_data:/var/lib/grafana
+  #   networks:
+  #     - monitoring
+
+  # loki:
+  #   image: grafana/loki:2.9.4
+  #   container_name: loki
+  #   ports:
+  #     - "3100:3100"
+  #   command: -config.file=/etc/loki/local-config.yaml
+  #   networks:
+  #     - monitoring
+
+  # promtail:
+  #   image: grafana/promtail:2.9.4
+  #   container_name: promtail
+  #   volumes:
+  #     - ./promtail/promtail-config.yml:/etc/promtail/config.yml
+  #     - C:\Users\Yash\Documents\Development\Projects\Refyne\refyne-backend2\logs:/var/log/app
+  #   command: -config.file=/etc/promtail/config.yml
+  #   networks:
+  #     - monitoring
+
+
+# Remove the volumes section since we're using bind mounts now
+
+networks:
+  monitoring:

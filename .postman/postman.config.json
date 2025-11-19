@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "collections": [
+    {
+      "id": "refyne-api",
+      "name": "Refyne Backend API",
+      "requests": []
+    }
+  ],
+  "environments": [
+    {
+      "id": "local",
+      "name": "Local Development"
+    }
+  ]
+}

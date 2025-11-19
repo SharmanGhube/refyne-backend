@@ -13,6 +13,8 @@ type AuthHandler interface {
 	VerifyOTP(c *gin.Context)
 	RefreshToken(c *gin.Context)
 	VerifyAccount(c *gin.Context)
+	Logout(c *gin.Context)
+	LogoutAllDevices(c *gin.Context)
 }
 
 type AuthHandlerImpl struct {

@@ -17,6 +17,8 @@ type AuthService interface {
 	VerifyOTPAndLogin(c *gin.Context, email, otp string) (*userModels.User, *auth.TokenPair, *errors.AppError)
 	RefreshToken(c *gin.Context, refreshToken string) (*auth.TokenPair, *errors.AppError)
 	VerifyAccount(c *gin.Context, token string) *errors.AppError
+	Logout(c *gin.Context, token string) *errors.AppError
+	LogoutAllDevices(c *gin.Context, userID string) *errors.AppError
 }
 
 type AuthServiceImpl struct {

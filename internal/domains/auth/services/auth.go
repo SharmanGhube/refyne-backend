@@ -156,12 +156,19 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 		return nil, nil, appErr.WithOperation("AuthServiceImpl.LoginUser - GetUserByEmail")
 	}
 
+	// Check if account is locked
+	if lockErr := s.checkAccountLockout(c, user.ID); lockErr != nil {
+		return nil, nil, lockErr
+	}
+
 	// Compare password hashes
 	if isValid, err := authUtils.CheckHash(password, user.PasswordHash); err != nil {
 		s.logger.Error("Password hash comparison failed", zap.Error(err))
+		s.handleFailedLogin(c, user.ID, email, "password")
 		return nil, nil, serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	} else if !isValid {
 		s.logger.Warn("Invalid password attempt", zap.String("email", email))
+		s.handleFailedLogin(c, user.ID, email, "password")
 		return nil, nil, serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	}
 
@@ -196,6 +203,9 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 	}
 
 	s.logger.Info("User logged in successfully", zap.String("userID", user.ID))
+
+	// Clear failed login attempts on successful login
+	s.clearFailedAttempts(c, email)
 
 	// Log audit event
 	s.logSuccessfulLogin(c, user.ID, email)

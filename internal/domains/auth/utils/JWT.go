@@ -103,7 +103,7 @@ func ValidateJWT(c *gin.Context, tokenString string) (*Claims, *errors.AppError)
 	}
 
 	// Get Secret Key from environment variable or configuration
-	secretKey := os.Getenv("JWT_SECRET_KEY")
+	secretKey := os.Getenv("JWT_SECRET")
 	if secretKey == "" {
 		return nil, NewJWTSecretNotSetError(c, "JWT secret key is not set")
 	}

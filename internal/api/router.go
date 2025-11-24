@@ -4,12 +4,14 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
-func NewRouter(registry *handlerregistry.HandlerRegistry) *gin.Engine {
+func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClient *redis.Client) *gin.Engine {
 	env := os.Getenv("APP_ENV")
 	if env == "" {
 		env = "development"
@@ -23,17 +25,28 @@ func NewRouter(registry *handlerregistry.HandlerRegistry) *gin.Engine {
 		gin.SetMode(gin.DebugMode)
 	}
 
+	// Initialize auth middleware with database for token version checking
+	middlewares.InitializeAuthMiddleware(db)
+
 	router.Use(gin.LoggerWithWriter(gin.DefaultWriter, "/health", "/metrics"))
 	router.Use(gin.Recovery())
 	router.Use(middlewares.RequestIDMiddleware())
+	router.Use(middlewares.CORSMiddleware())
+	router.Use(middlewares.SecurityHeadersMiddleware())
+	router.Use(middlewares.InputValidationMiddleware())
+	router.Use(middlewares.ValidateRequestSize(10 * 1024 * 1024)) // 10MB max request size
+
+	// Initialize health checker
+	healthChecker := NewHealthChecker(db, redisClient)
 
 	// Register Routes
 	apiRoutes := router.Group("/api")
 	{
-		// Public routes
-		apiRoutes.GET("/health", func(ctx *gin.Context) {
-			ctx.JSON(200, gin.H{"status": "ok"})
-		})
+		// Public routes - Health checks
+		apiRoutes.GET("/health", healthChecker.BasicHealthCheck)
+		apiRoutes.GET("/health/detailed", healthChecker.DetailedHealthCheck)
+		apiRoutes.GET("/health/ready", healthChecker.ReadinessCheck)
+		apiRoutes.GET("/health/live", healthChecker.LivenessCheck)
 
 		// Auth routes (contains both public and protected)
 		auth.SetupAuthRoutes(apiRoutes, registry)

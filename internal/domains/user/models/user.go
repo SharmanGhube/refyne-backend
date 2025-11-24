@@ -21,8 +21,10 @@ type User struct {
 	IsVerified bool   `json:"is_verified" db:"is_verified"`
 
 	// Security fields
-	LastLogin   *time.Time `json:"last_login" db:"last_login"`
-	LastLoginIP *string    `json:"last_login_ip" db:"last_login_ip"`
+	LastLogin             *time.Time `json:"last_login" db:"last_login"`
+	LastLoginIP           *string    `json:"last_login_ip" db:"last_login_ip"`
+	LastPasswordChangedAt *time.Time `json:"last_password_changed_at,omitempty" db:"last_password_changed_at"`
+	TokenVersion          int        `json:"token_version" db:"token_version"`
 
 	// Timestamps for creation and updates
 	CreatedAt time.Time  `json:"created_at" db:"created_at"`

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Refyne Account</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #6366f1;
+            margin-bottom: 10px;
+        }
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        .message {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 25px;
+            line-height: 1.8;
+        }
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .verify-button {
+            display: inline-block;
+            background-color: #6366f1;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .verify-button:hover {
+            background-color: #4f46e5;
+        }
+        .alternative {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        .alternative p {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .link-box {
+            background-color: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+            color: #374151;
+        }
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+        .warning {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .warning p {
+            margin: 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .footer a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Refyne</div>
+            <div class="badge">✉️ Email Verification</div>
+        </div>
+        
+        <h1 class="title">Verify Your Email Address</h1>
+        
+        <p class="message">
+            Hi {{.Username}},<br><br>
+            Thank you for signing up with Refyne! To complete your registration and start using your account, 
+            please verify your email address by clicking the button below.
+        </p>
+        
+        <div class="button-container">
+            <a href="{{.VerificationLink}}" class="verify-button">Verify Email Address</a>
+        </div>
+        
+        <div class="info-box">
+            <p>
+                <strong>⏱️ This link expires in 24 hours</strong><br>
+                For security reasons, this verification link will only work once.
+            </p>
+        </div>
+        
+        <div class="alternative">
+            <p><strong>Button not working?</strong> Copy and paste this link into your browser:</p>
+            <div class="link-box">{{.VerificationLink}}</div>
+        </div>
+        
+        <div class="warning">
+            <p>
+                <strong>⚠️ Didn't sign up?</strong> If you didn't create this account, please ignore this email. 
+                No account will be created without email verification.
+            </p>
+        </div>
+        
+        <p class="message" style="margin-top: 30px;">
+            Once verified, you'll have full access to all Refyne features including:
+        </p>
+        
+        <ul style="color: #4b5563; font-size: 15px; line-height: 1.8;">
+            <li>AI-powered content generation</li>
+            <li>Social media scheduling</li>
+            <li>Performance analytics</li>
+            <li>Team collaboration tools</li>
+        </ul>
+        
+        <div class="footer">
+            <p>
+                This is an automated verification email from Refyne.<br>
+                Need help? Contact us at <a href="mailto:support@refyne.com">support@refyne.com</a>
+            </p>
+            <p style="margin-top: 15px;">
+                © 2025 Refyne. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

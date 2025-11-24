@@ -11,11 +11,13 @@ import (
 type Config struct {
 	version string
 
-	Environment string
-	Port        string
-	SMTP        SMTPConfig
-	Database    DatabaseConfig
-	Instagram   InstagramConfig
+	Environment  string
+	Port         string
+	FrontendURL  string
+	SMTP         SMTPConfig
+	Database     DatabaseConfig
+	Redis        RedisConfig
+	Instagram    InstagramConfig
 }
 
 type SMTPConfig struct {
@@ -35,6 +37,13 @@ type DatabaseConfig struct {
 	password    string
 	database    string
 	sslMode     string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
 }
 
 type InstagramConfig struct {
@@ -61,10 +70,16 @@ func NewConfig() (*Config, error) {
 		port = "8080"
 	}
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
 	config := &Config{
 		version:     os.Getenv("APP_VERSION"),
 		Environment: env,
 		Port:        port,
+		FrontendURL: frontendURL,
 		SMTP: SMTPConfig{
 			Host:     os.Getenv("SMTP_HOST"),
 			Port:     587, // Default SMTP port
@@ -81,6 +96,12 @@ func NewConfig() (*Config, error) {
 			password:    os.Getenv("DB_PASSWORD"),
 			database:    os.Getenv("DB_NAME"),
 			sslMode:     os.Getenv("DB_SSL_MODE"),
+		},
+		Redis: RedisConfig{
+			Host:     getRedisHost(),
+			Port:     getRedisPort(),
+			Password: os.Getenv("REDIS_PASSWORD"),
+			DB:       0, // Default Redis DB
 		},
 		Instagram: InstagramConfig{
 			ClientID:     os.Getenv("INSTAGRAM_CLIENT_ID"),
@@ -99,5 +120,20 @@ func NewConfig() (*Config, error) {
 	}
 
 	return config, nil
+}
 
+func getRedisHost() string {
+	host := os.Getenv("REDIS_HOST")
+	if host == "" {
+		return "localhost"
+	}
+	return host
+}
+
+func getRedisPort() string {
+	port := os.Getenv("REDIS_PORT")
+	if port == "" {
+		return "6379"
+	}
+	return port
 }

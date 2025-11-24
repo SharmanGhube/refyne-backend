@@ -19,21 +19,22 @@ type TokenPair struct {
 
 // Claims represents the JWT claims for authentication
 type Claims struct {
-	Username string `json:"username"`
-	UserID   string `json:"user_id"`
-	Email    string `json:"email"`
+	Username     string `json:"username"`
+	UserID       string `json:"user_id"`
+	Email        string `json:"email"`
+	TokenVersion int    `json:"token_version"`
 	jwt.RegisteredClaims
 }
 
-func GenerateTokenPair(c *gin.Context, username, userID, email string) (*TokenPair, *errors.AppError) {
+func GenerateTokenPair(c *gin.Context, username, userID, email string, tokenVersion int) (*TokenPair, *errors.AppError) {
 	// Access Token valid for 15 minutes
-	accessToken, appErr := GenerateJWT(c, username, userID, email, 15)
+	accessToken, appErr := GenerateJWT(c, username, userID, email, tokenVersion, 15)
 	if appErr != nil {
 		return nil, appErr
 	}
 
 	// Refresh Token valid for 7 days (10080 minutes)
-	refreshToken, appErr := GenerateJWT(c, username, userID, email, 10080)
+	refreshToken, appErr := GenerateJWT(c, username, userID, email, tokenVersion, 10080)
 	if appErr != nil {
 		return nil, appErr
 	}
@@ -46,7 +47,7 @@ func GenerateTokenPair(c *gin.Context, username, userID, email string) (*TokenPa
 }
 
 // GenerateJWT generates a JWT token for the given claims
-func GenerateJWT(c *gin.Context, username, userID, email string, expiresIn int64) (string, *errors.AppError) {
+func GenerateJWT(c *gin.Context, username, userID, email string, tokenVersion int, expiresIn int64) (string, *errors.AppError) {
 	// Get Secret from env
 	secretKey := os.Getenv("JWT_SECRET")
 	if secretKey == "" {
@@ -69,9 +70,10 @@ func GenerateJWT(c *gin.Context, username, userID, email string, expiresIn int64
 
 	// Create the JWT claims
 	claims := &Claims{
-		Username: username,
-		UserID:   userID,
-		Email:    email,
+		Username:     username,
+		UserID:       userID,
+		Email:        email,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

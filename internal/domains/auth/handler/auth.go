@@ -42,11 +42,9 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 
 	h.logger.Info("User registered successfully", zap.String("requestID", middlewares.GetRequestID(c)))
 
-	// TODO: Send verification email (RiverQueue)
-
-	// Respond with success
+	// Respond with success - user needs to verify email
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully",
+		"message": "User registered successfully. Please check your email to verify your account.",
 	})
 }
 
@@ -71,8 +69,8 @@ func (h *AuthHandlerImpl) RequestOTP(c *gin.Context) {
 
 	h.logger.Info("Processing OTP request", zap.String("requestID", middlewares.GetRequestID(c)))
 
-	// Call Auth Service to generate OTP
-	otp, appErr := h.authService.RequestOTP(c, req.Email, req.Password)
+	// Call Auth Service to generate OTP (sent via email)
+	_, appErr := h.authService.RequestOTP(c, req.Email, req.Password)
 	if appErr != nil {
 		h.logger.Error("OTP request failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
@@ -81,10 +79,11 @@ func (h *AuthHandlerImpl) RequestOTP(c *gin.Context) {
 
 	h.logger.Info("OTP generated successfully", zap.String("requestID", middlewares.GetRequestID(c)))
 
-	// Respond with OTP (for debug purposes)
+	// Production-ready response (OTP sent via email only)
+	// Note: In production, OTP should NEVER be included in the response
+	// Users receive OTP via email only for security
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "OTP sent successfully",
-		"otp":        otp, // Debug: remove in production
+		"message":    "OTP sent successfully to your email",
 		"expires_in": 900, // 15 minutes in seconds
 		"RequestID":  middlewares.GetRequestID(c),
 	})
@@ -213,4 +212,38 @@ func (h *AuthHandlerImpl) VerifyAccount(c *gin.Context) {
 	})
 
 	h.logger.Info("Account verification successful", zap.String("requestID", middlewares.GetRequestID(c)))
+}
+
+// ResendVerification handles resending verification email
+func (h *AuthHandlerImpl) ResendVerification(c *gin.Context) {
+	h.logger.Info("Resend verification request", zap.String("requestID", middlewares.GetRequestID(c)))
+
+	// Request structure
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	// Bind request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid resend verification request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request format",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Resend verification email (always return success to prevent email enumeration)
+	if appErr := h.authService.ResendVerificationEmail(c, req.Email); appErr != nil {
+		// Log error but don't expose to client
+		h.logger.Error("Resend verification failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
+	}
+
+	// Success response (always the same regardless of whether email exists)
+	c.JSON(http.StatusOK, gin.H{
+		"message":   "If an account exists with that email, a verification email has been sent.",
+		"RequestID": middlewares.GetRequestID(c),
+	})
+
+	h.logger.Info("Resend verification request processed", zap.String("requestID", middlewares.GetRequestID(c)))
 }

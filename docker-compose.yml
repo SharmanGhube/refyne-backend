@@ -31,26 +31,30 @@ services:
     networks:
       - monitoring
 
-  # redis:
-  #   container_name: refyne_redis
-  #   image: redis:7-alpine
-  #   restart: always
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - ./redis_data:/data
-  #   command: redis-server --appendonly yes
+  redis:
+    container_name: refyne_redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - monitoring
 
-  # redisinsight:
-  #   container_name: redisinsight_container
-  #   image: redislabs/redisinsight:latest
-  #   restart: always
-  #   ports:
-  #     - "5540:5540"
-  #   volumes:
-  #     - ./redisinsight_data:/db
-  #   depends_on:
-  #     - redis
+  redisinsight:
+    container_name: redisinsight_container
+    image: redislabs/redisinsight:latest
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - ./redisinsight_data:/db
+    depends_on:
+      - redis
+    networks:
+      - monitoring
 
   # riverui:
   #   container_name: riverui_container

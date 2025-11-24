@@ -87,9 +87,21 @@ func (s *AuthServiceImpl) RequestPasswordReset(c *gin.Context, email string) *er
 		return err
 	}
 
-	// TODO: Send reset email (Phase 1.3 - Email Service Integration)
-	// For now, we'll return the token in the response (development only)
-	// In production, this should be sent via email only
+	// Send password reset email
+	// Construct reset link using configured frontend URL
+	resetLink := s.frontendURL + "/reset-password?token=" + token
+	if s.emailService != nil {
+		if emailErr := s.emailService.SendPasswordReset(email, token, resetLink); emailErr != nil {
+			s.logger.Error("Failed to send password reset email",
+				zap.String("requestID", middlewares.GetRequestID(c)),
+				zap.String("email", email),
+				zap.Error(emailErr),
+			)
+			// Don't fail the request if email sending fails
+		}
+	} else {
+		s.logger.Warn("Email service not configured, reset link not sent via email")
+	}
 
 	s.logger.Info("Password reset token created",
 		zap.String("requestID", middlewares.GetRequestID(c)),

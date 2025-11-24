@@ -1,10 +1,12 @@
 package middlewares
 
 import (
+	"database/sql"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	authUtils "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
@@ -24,6 +26,12 @@ const (
 )
 
 var logger = logging.GetLogger()
+var tokenVersionCache *TokenVersionCache
+
+// InitializeAuthMiddleware initializes the auth middleware with database dependency
+func InitializeAuthMiddleware(db *sqlx.DB) {
+	tokenVersionCache = NewTokenVersionCache(db)
+}
 
 // AuthMiddleware validates JWT tokens and sets user context
 func AuthMiddleware() gin.HandlerFunc {
@@ -91,6 +99,43 @@ func AuthMiddleware() gin.HandlerFunc {
 			})
 			c.Abort()
 			return
+		}
+
+		// Validate token version to ensure token wasn't issued before password change
+		if tokenVersionCache != nil {
+			currentVersion, dbErr := tokenVersionCache.GetUserTokenVersion(c.Request.Context(), claims.UserID)
+			if dbErr != nil {
+				if dbErr == sql.ErrNoRows {
+					logger.Warn("User not found during token version check",
+						zap.String("requestID", requestID),
+						zap.String("userID", claims.UserID))
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error":      "Unauthorized",
+						"message":    "Invalid token",
+						"request_id": requestID,
+					})
+					c.Abort()
+					return
+				}
+				logger.Error("Failed to check token version",
+					zap.String("requestID", requestID),
+					zap.String("userID", claims.UserID),
+					zap.Error(dbErr))
+				// Don't block request on DB error, but log it
+			} else if claims.TokenVersion != currentVersion {
+				logger.Warn("Token version mismatch - token invalidated after password change",
+					zap.String("requestID", requestID),
+					zap.String("userID", claims.UserID),
+					zap.Int("token_version", claims.TokenVersion),
+					zap.Int("current_version", currentVersion))
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error":      "Unauthorized",
+					"message":    "Token has been invalidated. Please login again.",
+					"request_id": requestID,
+				})
+				c.Abort()
+				return
+			}
 		}
 
 		// Set user information in context for downstream handlers

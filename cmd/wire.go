@@ -17,6 +17,7 @@ import (
 	user "github.com/refynehq/refyne-backend/internal/domains/user"
 	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
+	redisPackage "github.com/refynehq/refyne-backend/internal/shared/redis"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )
@@ -28,6 +29,7 @@ var AppSet = wire.NewSet(
 	logging.ProviderSet,
 
 	// Shared Services
+	redisPackage.ProviderSet,
 	riverqueue.ProviderSet,
 	handlerregistry.ProviderSet,
 

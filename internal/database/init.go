@@ -24,9 +24,21 @@ func initDB() (*sqlx.DB, error) {
 	database := os.Getenv("DB_NAME")
 	sslMode := os.Getenv("DB_SSL_MODE")
 
-	// Build connection string
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		host, port, user, password, database, sslMode)
+	// Security: Set connection timeout (default 10s)
+	connectTimeout := "10"
+	if val := os.Getenv("DB_CONNECT_TIMEOUT"); val != "" {
+		connectTimeout = val
+	}
+
+	// Security: Set statement timeout (default 30s, prevents long-running queries)
+	statementTimeout := "30000" // milliseconds
+	if val := os.Getenv("DB_STATEMENT_TIMEOUT"); val != "" {
+		statementTimeout = val
+	}
+
+	// Build connection string with security parameters
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s connect_timeout=%s statement_timeout=%s",
+		host, port, user, password, database, sslMode, connectTimeout, statementTimeout)
 
 	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {

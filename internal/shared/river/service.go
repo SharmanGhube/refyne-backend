@@ -3,9 +3,10 @@ package riverqueue
 import (
 	"context"
 	"time"
+	"unsafe"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	emailJobs "github.com/refynehq/refyne-backend/internal/domains/email/jobs"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/riverqueue/river"
@@ -15,13 +16,16 @@ import (
 )
 
 type RiverService struct {
-	client *river.Client[pgx.Tx]
+	client *river.Client[any]
 	ctx    context.Context
 	cancel context.CancelFunc
 	logger *zap.Logger
 }
 type WorkerDependancies struct {
 	// User
+
+	// Email
+	EmailWorker *emailJobs.EmailWorker
 
 	// Instagram
 }
@@ -68,7 +72,10 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 
 	workers := river.NewWorkers()
 	// Register workers
-	// river.AddWorker(workers, emailWorkers.NewEmailVerificationWorker())
+	if deps.EmailWorker != nil {
+		river.AddWorker(workers, deps.EmailWorker)
+		logger.Info("Registered Email Worker")
+	}
 
 	logger.Info("Registered River Workers")
 
@@ -91,7 +98,7 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 
 	ctx, cancel := context.WithCancel(context.Background())
 	service := &RiverService{
-		client: riverClient,
+		client: (*river.Client[any])(unsafe.Pointer(riverClient)),
 		ctx:    ctx,
 		cancel: cancel,
 		logger: logger,
@@ -137,6 +144,6 @@ func (s *RiverService) Stop() *errors.AppError {
 	return nil
 }
 
-func (s *RiverService) GetClient() *river.Client[pgx.Tx] {
+func (s *RiverService) GetClient() *river.Client[any] {
 	return s.client
 }

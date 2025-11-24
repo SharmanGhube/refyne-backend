@@ -1,13 +1,19 @@
 package email
 
-import "github.com/google/wire"
+import (
+	"github.com/google/wire"
+	"github.com/refynehq/refyne-backend/internal/domains/email/jobs"
+	"github.com/refynehq/refyne-backend/internal/domains/email/service"
+)
 
 var ProviderSet = wire.NewSet(
 	// Registry
 	NewEmailRegistry,
 
-	// Handlers
-
 	// Services
+	service.NewSMTPService,
+	service.NewEmailService,
 
+	// Workers
+	jobs.NewEmailWorker,
 )

@@ -13,19 +13,25 @@ import (
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database"
 	"github.com/refynehq/refyne-backend/internal/domains/ai"
-	auth4 "github.com/refynehq/refyne-backend/internal/domains/auth"
-	auth3 "github.com/refynehq/refyne-backend/internal/domains/auth/handler"
+	auth2 "github.com/refynehq/refyne-backend/internal/domains/auth"
+	auth4 "github.com/refynehq/refyne-backend/internal/domains/auth/handler"
 	"github.com/refynehq/refyne-backend/internal/domains/auth/repository"
-	auth2 "github.com/refynehq/refyne-backend/internal/domains/auth/services"
+	auth3 "github.com/refynehq/refyne-backend/internal/domains/auth/services"
 	"github.com/refynehq/refyne-backend/internal/domains/context"
 	"github.com/refynehq/refyne-backend/internal/domains/email"
+	"github.com/refynehq/refyne-backend/internal/domains/email/jobs"
+	"github.com/refynehq/refyne-backend/internal/domains/email/service"
 	"github.com/refynehq/refyne-backend/internal/domains/notification"
 	"github.com/refynehq/refyne-backend/internal/domains/otto"
 	user2 "github.com/refynehq/refyne-backend/internal/domains/user"
 	"github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace"
+	"github.com/refynehq/refyne-backend/internal/shared/audit"
+	"github.com/refynehq/refyne-backend/internal/shared/device"
 	"github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
+	"github.com/refynehq/refyne-backend/internal/shared/redis"
 	"github.com/refynehq/refyne-backend/internal/shared/river"
+	"github.com/refynehq/refyne-backend/internal/shared/validation"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )
 
@@ -46,9 +52,28 @@ func InitializeApp() (*bootstrap.App, error) {
 	}
 	coreUserRepository := user.NewCoreUserRepository(db)
 	passwordResetRepository := auth.NewPasswordResetRepository(db)
-	authService := auth2.NewAuthService(coreUserRepository, passwordResetRepository)
-	authHandler := auth3.NewAuthHandler(authService)
-	authRegistry := auth4.NewAuthRegistry(authHandler)
+	verificationRepository := auth.NewVerificationRepository(db)
+	accountSecurityRepository := auth.NewAccountSecurityRepository(db)
+	smtpService := service.NewSMTPService(configConfig)
+	emailService, err := service.NewEmailService(smtpService)
+	if err != nil {
+		return nil, err
+	}
+	emailWorker := jobs.NewEmailWorker(emailService)
+	workerDependancies := riverqueue.NewWorkerDependancies(emailWorker)
+	riverService, err := riverqueue.NewRiverService(pool, workerDependancies)
+	if err != nil {
+		return nil, err
+	}
+	client := riverqueue.ProvideRiverClientAny(riverService)
+	auditLogger := audit.ProvideAuditLogger(db)
+	logger := logging.NewLogger()
+	deviceSessionService := device.NewDeviceSessionService(db, logger)
+	validator := validation.NewValidator()
+	string2 := auth2.ProvideFrontendURL(configConfig)
+	authService := auth3.NewAuthService(coreUserRepository, passwordResetRepository, verificationRepository, accountSecurityRepository, emailService, client, auditLogger, deviceSessionService, validator, string2)
+	authHandler := auth4.NewAuthHandler(authService)
+	authRegistry := auth2.NewAuthRegistry(authHandler)
 	userRegistry := user2.NewUserRegistry()
 	aiRegistry := ai.NewAIRegistry()
 	contextRegistry := context.NewContextRegistry()
@@ -57,13 +82,12 @@ func InitializeApp() (*bootstrap.App, error) {
 	ottoRegistry := otto.NewOttoRegistry()
 	workspaceRegistry := workspace.NewWorkspaceRegistry()
 	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, notificationRegistry, ottoRegistry, workspaceRegistry)
-	engine := api.NewRouter(handlerRegistry)
-	logger := logging.NewLogger()
-	workerDependancies := riverqueue.NewWorkerDependancies()
-	riverService, err := riverqueue.NewRiverService(pool, workerDependancies)
+	redisClient, err := redis.NewRedisClient(configConfig)
 	if err != nil {
 		return nil, err
 	}
+	client2 := redis.ProvideRedisClient(redisClient)
+	engine := api.NewRouter(handlerRegistry, db, client2)
 	app, err := bootstrap.NewApp(configConfig, db, pool, engine, logger, riverService)
 	if err != nil {
 		return nil, err
@@ -73,4 +97,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth4.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, user2.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, redis.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth2.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, user2.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

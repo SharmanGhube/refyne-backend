@@ -172,7 +172,12 @@ func (r *CoreUserRepositoryImpl) VerifyUser(c *gin.Context, userID string) *erro
 func (r *CoreUserRepositoryImpl) UpdatePassword(c *gin.Context, userID, hashedPassword string) *errors.AppError {
 	r.logger.Info("Updating user password", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", userID))
 
-	query := `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+	query := `UPDATE users 
+	          SET password_hash = $1, 
+	              last_password_changed_at = CURRENT_TIMESTAMP,
+	              token_version = token_version + 1,
+	              updated_at = CURRENT_TIMESTAMP 
+	          WHERE id = $2`
 	result, err := r.db.ExecContext(c.Request.Context(), query, hashedPassword, userID)
 	if err != nil {
 		r.logger.Error("Failed to update password",

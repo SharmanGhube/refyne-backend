@@ -12,9 +12,12 @@ type AuthHandler interface {
 	RequestOTP(c *gin.Context)
 	VerifyOTP(c *gin.Context)
 	RefreshToken(c *gin.Context)
-	VerifyAccount(c *gin.Context)
 	Logout(c *gin.Context)
 	LogoutAllDevices(c *gin.Context)
+
+	// Email Verification
+	VerifyAccount(c *gin.Context)
+	ResendVerification(c *gin.Context)
 
 	// Password Reset
 	ForgotPassword(c *gin.Context)

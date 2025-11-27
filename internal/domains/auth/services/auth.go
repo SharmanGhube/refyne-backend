@@ -214,69 +214,69 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 }
 
 // RequestOTP validates user credentials and generates an OTP
-func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) (string, *errors.AppError) {
+func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) *errors.AppError {
 	s.logger.Info("Requesting OTP for user", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
 
 	// Validate Input parameters
 	if !userUtils.CheckValidEmail(email) {
-		return "", serviceErrors.NewInvalidEmailFormatError(c, email)
+		return serviceErrors.NewInvalidEmailFormatError(c, email)
 	}
 
 	if password == "" {
-		return "", serviceErrors.NewInvalidPasswordError(c, "Password is required")
+		return serviceErrors.NewInvalidPasswordError(c, "Password is required")
 	}
 
 	// Check if user exists (by email)
 	userExists, appErr := s.coreUserRepo.UserExistsByEmail(c, email)
 	if appErr != nil {
 		s.logger.Error("Failed to check if user exists by email", zap.Error(appErr))
-		return "", appErr
+		return appErr
 	}
 	if !userExists {
 		s.logger.Warn("User with email does not exist", zap.String("email", email))
-		return "", serviceErrors.NewUserNotFoundError(c, email)
+		return serviceErrors.NewUserNotFoundError(c, email)
 	}
 
 	// Get user from DB
 	user, appErr := s.coreUserRepo.GetUserByEmail(c, email)
 	if appErr != nil {
 		s.logger.Error("Failed to get user by email", zap.Error(appErr))
-		return "", appErr.WithOperation("AuthServiceImpl.RequestOTP - GetUserByEmail")
+		return appErr.WithOperation("AuthServiceImpl.RequestOTP - GetUserByEmail")
 	}
 
 	// Check if account is locked
 	if lockErr := s.checkAccountLockout(c, user.ID); lockErr != nil {
-		return "", lockErr
+		return lockErr
 	}
 
 	// Validate password first
 	if isValid, err := authUtils.CheckHash(password, user.PasswordHash); err != nil {
 		s.logger.Error("Password hash comparison failed", zap.Error(err))
 		s.handleFailedLogin(c, user.ID, email, "password")
-		return "", serviceErrors.NewInvalidPasswordError(c, "Invalid password")
+		return serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	} else if !isValid {
 		s.logger.Warn("Invalid password attempt", zap.String("email", email))
 		s.handleFailedLogin(c, user.ID, email, "password")
-		return "", serviceErrors.NewInvalidPasswordError(c, "Invalid password")
+		return serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	}
 
 	// Check account status (is_active, is_verified, etc.)
 	// Check if user is verified
 	if !user.IsVerified {
 		s.logger.Warn("Attempt to request OTP for unverified account", zap.String("email", email))
-		return "", serviceErrors.NewUserNotVerifiedError(c, email)
+		return serviceErrors.NewUserNotVerifiedError(c, email)
 	}
 
 	// Check if user is active
 	if !user.IsActive {
 		s.logger.Warn("Attempt to request OTP for inactive account", zap.String("email", email))
-		return "", serviceErrors.NewUserNotActiveError(c, email)
+		return serviceErrors.NewUserNotActiveError(c, email)
 	}
 
 	// Check if user status is active
 	if user.Status != "active" {
 		s.logger.Warn("Attempt to request OTP for account with non-active status", zap.String("email", email), zap.String("status", user.Status))
-		return "", serviceErrors.NewUserNotActiveError(c, email)
+		return serviceErrors.NewUserNotActiveError(c, email)
 	}
 
 	// Generate OTP
@@ -284,7 +284,7 @@ func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) (st
 	otp, err := otpManager.GenerateOTP()
 	if err != nil {
 		s.logger.Error("Failed to generate OTP", zap.Error(err))
-		return "", serviceErrors.NewInternalServerError(c, "Failed to generate OTP")
+		return serviceErrors.NewInternalServerError(c, "Failed to generate OTP")
 	}
 
 	// Store OTP in memory (invalidates any existing OTP for this email)
@@ -308,9 +308,9 @@ func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) (st
 		s.logger.Warn("Email service not configured, OTP not sent via email")
 	}
 
-	// Return OTP only in development mode for testing
+	// Return nil (success)
 	// In production, OTP is only sent via email
-	return "", nil
+	return nil
 }
 
 // VerifyOTPAndLogin validates OTP and logs in the user

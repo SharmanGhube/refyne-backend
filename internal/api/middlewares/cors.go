@@ -51,8 +51,8 @@ func getAllowedOrigins() []string {
 		"http://localhost:3001",
 		"http://127.0.0.1:3000",
 		"https://refyne.app",
-		"https://www.refyne.app",
-		"https://app.refyne.app",
+		"https://www.refyne.me",
+		"https://app.refyne.me",
 	}
 }
 

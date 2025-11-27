@@ -70,7 +70,7 @@ func (h *AuthHandlerImpl) RequestOTP(c *gin.Context) {
 	h.logger.Info("Processing OTP request", zap.String("requestID", middlewares.GetRequestID(c)))
 
 	// Call Auth Service to generate OTP (sent via email)
-	_, appErr := h.authService.RequestOTP(c, req.Email, req.Password)
+	appErr := h.authService.RequestOTP(c, req.Email, req.Password)
 	if appErr != nil {
 		h.logger.Error("OTP request failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())

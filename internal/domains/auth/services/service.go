@@ -19,7 +19,7 @@ import (
 type AuthService interface {
 	RegisterUser(c *gin.Context, firstname, lastname, username, email, password string) *errors.AppError
 	LoginUser(c *gin.Context, email, password string) (*userModels.User, *auth.TokenPair, *errors.AppError)
-	RequestOTP(c *gin.Context, email, password string) (string, *errors.AppError)
+	RequestOTP(c *gin.Context, email, password string) *errors.AppError
 	VerifyOTPAndLogin(c *gin.Context, email, otp string) (*userModels.User, *auth.TokenPair, *errors.AppError)
 	RefreshToken(c *gin.Context, refreshToken string) (*auth.TokenPair, *errors.AppError)
 	Logout(c *gin.Context, token string) *errors.AppError

@@ -23,6 +23,11 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/email/service"
 	"github.com/refynehq/refyne-backend/internal/domains/notification"
 	"github.com/refynehq/refyne-backend/internal/domains/otto"
+	"github.com/refynehq/refyne-backend/internal/domains/subscription"
+	config2 "github.com/refynehq/refyne-backend/internal/domains/subscription/config"
+	"github.com/refynehq/refyne-backend/internal/domains/subscription/handler"
+	"github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
+	"github.com/refynehq/refyne-backend/internal/domains/subscription/services"
 	user2 "github.com/refynehq/refyne-backend/internal/domains/user"
 	"github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace"
@@ -81,7 +86,19 @@ func InitializeApp() (*bootstrap.App, error) {
 	notificationRegistry := notification.NewNotificationRegistry()
 	ottoRegistry := otto.NewOttoRegistry()
 	workspaceRegistry := workspace.NewWorkspaceRegistry()
-	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, notificationRegistry, ottoRegistry, workspaceRegistry)
+	paddleConfig, err := config2.NewPaddleConfig(logger)
+	if err != nil {
+		return nil, err
+	}
+	paddleService, err := services.NewPaddleService(paddleConfig)
+	if err != nil {
+		return nil, err
+	}
+	subscriptionRepository := repository.NewSubscriptionRepository(db)
+	webhookService := services.NewWebhookService(subscriptionRepository, logger)
+	subscriptionHandler := handler.NewSubscriptionHandler(paddleService, webhookService, subscriptionRepository)
+	subscriptionRegistry := subscription.NewSubscriptionRegistry(subscriptionHandler)
+	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, notificationRegistry, ottoRegistry, workspaceRegistry, subscriptionRegistry)
 	redisClient, err := redis.NewRedisClient(configConfig)
 	if err != nil {
 		return nil, err
@@ -97,4 +114,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, redis.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth2.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, user2.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, redis.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth2.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, subscription.ProviderSet, user2.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

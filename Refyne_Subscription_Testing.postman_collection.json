@@ -1,0 +1,616 @@
+{
+	"info": {
+		"name": "Refyne - Subscription & Payment Testing",
+		"description": "Test Paddle subscription integration (Phase 1.5)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"version": "1.5.0"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/api",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_email",
+			"value": "subscriber@example.com",
+			"type": "string"
+		},
+		{
+			"key": "checkout_url",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Setup: Authentication",
+			"item": [
+				{
+					"name": "1. Register Test User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Store user_id if registration successful",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.user_id) {",
+									"        pm.collectionVariables.set('user_id', response.data.user_id);",
+									"        console.log('✅ User registered:', response.data.user_id);",
+									"    }",
+									"}",
+									"",
+									"// Verify response structure",
+									"pm.test('Status code is 201', () => {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test('Response has user data', () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('data');",
+									"    pm.expect(jsonData.data).to.have.property('user_id');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"first_name\": \"Test\",\n  \"last_name\": \"Subscriber\",\n  \"username\": \"testsubscriber\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"SecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "register"]
+						},
+						"description": "Register a test user for subscription testing"
+					}
+				},
+				{
+					"name": "2. Request OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Auto-extract OTP from console (dev mode only)",
+									"const consoleOutput = pm.response.json();",
+									"",
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"console.log('⚠️ Check server logs for OTP or database:');",
+									"console.log('SQL: SELECT otp FROM verification_tokens WHERE email = \\'{{user_email}}\\' ORDER BY created_at DESC LIMIT 1;');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"SecurePass123!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/request-otp",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "request-otp"]
+						},
+						"description": "Request OTP for login. Check server console or database for OTP code."
+					}
+				},
+				{
+					"name": "3. Login with OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Store tokens automatically",
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data) {",
+									"        pm.collectionVariables.set('access_token', response.data.access_token);",
+									"        pm.collectionVariables.set('refresh_token', response.data.refresh_token);",
+									"        console.log('✅ Tokens saved! Access token:', response.data.access_token.substring(0, 20) + '...');",
+									"    }",
+									"}",
+									"",
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response contains tokens', () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('access_token');",
+									"    pm.expect(jsonData.data).to.have.property('refresh_token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Reminder to set OTP",
+									"console.log('⚠️ Make sure to set the OTP in the request body before sending!');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{user_email}}\",\n  \"otp\": \"PASTE_OTP_HERE\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login with OTP. **IMPORTANT**: Replace PASTE_OTP_HERE with actual OTP from server logs/database."
+					}
+				}
+			],
+			"description": "Complete authentication flow before testing subscriptions"
+		},
+		{
+			"name": "Subscription Endpoints",
+			"item": [
+				{
+					"name": "1. Create Checkout Session (Starter)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.checkout_url) {",
+									"        pm.collectionVariables.set('checkout_url', response.data.checkout_url);",
+									"        console.log('✅ Checkout URL:', response.data.checkout_url);",
+									"        console.log('🌐 Open this URL in your browser to complete payment');",
+									"    }",
+									"}",
+									"",
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response contains checkout URL', () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('checkout_url');",
+									"    pm.expect(jsonData.data.checkout_url).to.include('paddle.com');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"starter\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create a Paddle checkout session for Starter tier ($29/month)"
+					}
+				},
+				{
+					"name": "2. Create Checkout Session (Professional)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.checkout_url) {",
+									"        pm.collectionVariables.set('checkout_url', response.data.checkout_url);",
+									"        console.log('✅ Professional Checkout URL:', response.data.checkout_url);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"professional\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create checkout for Professional tier ($99/month)"
+					}
+				},
+				{
+					"name": "3. Get Subscription Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response contains subscription data', () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('subscription_tier');",
+									"    pm.expect(jsonData.data).to.have.property('subscription_status');",
+									"});",
+									"",
+									"// Log subscription details",
+									"const response = pm.response.json();",
+									"console.log('📊 Subscription Status:');",
+									"console.log('  Tier:', response.data.subscription_tier);",
+									"console.log('  Status:', response.data.subscription_status);",
+									"console.log('  Expires:', response.data.subscription_expires_at || 'N/A');",
+									"console.log('  Customer ID:', response.data.paddle_customer_id || 'N/A');",
+									"console.log('  Subscription ID:', response.data.paddle_subscription_id || 'N/A');"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/subscription/status",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "status"]
+						},
+						"description": "Get current user's subscription status"
+					}
+				},
+				{
+					"name": "4. Get Customer Portal URL",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.portal_url) {",
+									"        console.log('✅ Customer Portal URL:', response.data.portal_url);",
+									"        console.log('🌐 User can manage subscription here');",
+									"    }",
+									"}",
+									"",
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/subscription/portal",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "portal"]
+						},
+						"description": "Get Paddle customer portal URL (requires active subscription)"
+					}
+				},
+				{
+					"name": "5. Test Webhook (Manual)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Paddle-Signature",
+								"value": "WEBHOOK_SIGNATURE_HERE",
+								"description": "Paddle webhook signature (automatically generated by Paddle)"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"event_type\": \"subscription.created\",\n  \"data\": {\n    \"id\": \"sub_123\",\n    \"status\": \"active\",\n    \"customer_id\": \"ctm_123\",\n    \"items\": [\n      {\n        \"price\": {\n          \"product_id\": \"pro_01kb658vg4yn2kfa05bgpea0mn\"\n        }\n      }\n    ],\n    \"next_billed_at\": \"2025-12-29T00:00:00.000000Z\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/webhooks/paddle",
+							"host": ["{{base_url}}"],
+							"path": ["webhooks", "paddle"]
+						},
+						"description": "⚠️ This is for reference only. Real webhooks come from Paddle with proper signatures. Use ngrok for testing."
+					}
+				}
+			],
+			"description": "Test all subscription endpoints (requires authentication)"
+		},
+		{
+			"name": "Error Cases",
+			"item": [
+				{
+					"name": "Checkout - Invalid Tier",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', () => {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Error message contains invalid tier', () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.error).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"invalid_tier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Test with invalid subscription tier"
+					}
+				},
+				{
+					"name": "Checkout - No Authentication",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 401', () => {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"starter\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Test checkout without authentication - should fail"
+					}
+				},
+				{
+					"name": "Rate Limit Test (Send 11+ times)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// After 10 requests in an hour, should get 429",
+									"if (pm.response.code === 429) {",
+									"    console.log('✅ Rate limit working! Got 429 Too Many Requests');",
+									"    pm.test('Rate limit enforced', () => {",
+									"        pm.response.to.have.status(429);",
+									"    });",
+									"} else {",
+									"    console.log('ℹ️ Request ' + (parseInt(pm.variables.get('request_count') || 0) + 1) + ' succeeded');",
+									"    pm.variables.set('request_count', (parseInt(pm.variables.get('request_count') || 0) + 1));",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"starter\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Send this 11+ times rapidly to test rate limiting (10 req/hour)"
+					}
+				}
+			],
+			"description": "Test error handling and security"
+		},
+		{
+			"name": "Database Verification",
+			"item": [
+				{
+					"name": "Check Users Table (SQL)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Run this SQL in your database client:\n\n```sql\nSELECT \n  id,\n  email,\n  subscription_tier,\n  subscription_status,\n  subscription_expires_at,\n  paddle_customer_id,\n  paddle_subscription_id,\n  onboarding_completed\nFROM users \nWHERE email = 'subscriber@example.com';\n```"
+					}
+				},
+				{
+					"name": "Check Subscription Fields Schema (SQL)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Verify subscription fields exist:\n\n```sql\nSELECT \n  column_name, \n  data_type, \n  is_nullable, \n  column_default\nFROM information_schema.columns\nWHERE table_name = 'users'\n  AND column_name IN (\n    'subscription_tier',\n    'subscription_status',\n    'subscription_expires_at',\n    'paddle_customer_id',\n    'paddle_subscription_id',\n    'onboarding_completed'\n  )\nORDER BY ordinal_position;\n```"
+					}
+				}
+			],
+			"description": "SQL queries to verify database state"
+		}
+	]
+}

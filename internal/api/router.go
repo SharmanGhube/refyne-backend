@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
+	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
@@ -50,6 +51,9 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 
 		// Auth routes (contains both public and protected)
 		auth.SetupAuthRoutes(apiRoutes, registry)
+
+		// Subscription routes (checkout, webhooks, status)
+		subscription.SetupSubscriptionRoutes(apiRoutes, registry)
 
 		// Protected test route
 		protected := apiRoutes.Group("/protected")

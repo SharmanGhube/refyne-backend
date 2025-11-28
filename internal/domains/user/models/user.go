@@ -26,6 +26,14 @@ type User struct {
 	LastPasswordChangedAt *time.Time `json:"last_password_changed_at,omitempty" db:"last_password_changed_at"`
 	TokenVersion          int        `json:"token_version" db:"token_version"`
 
+	// Subscription fields (Paddle integration)
+	SubscriptionTier      string     `json:"subscription_tier" db:"subscription_tier"`     // starter, professional, business, enterprise
+	SubscriptionStatus    string     `json:"subscription_status" db:"subscription_status"` // active, cancelled, past_due, trialing, paused, inactive
+	SubscriptionExpiresAt *time.Time `json:"subscription_expires_at,omitempty" db:"subscription_expires_at"`
+	PaddleCustomerID      *string    `json:"paddle_customer_id,omitempty" db:"paddle_customer_id"`
+	PaddleSubscriptionID  *string    `json:"paddle_subscription_id,omitempty" db:"paddle_subscription_id"`
+	OnboardingCompleted   bool       `json:"onboarding_completed" db:"onboarding_completed"`
+
 	// Timestamps for creation and updates
 	CreatedAt time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at" db:"updated_at"`
@@ -43,6 +51,39 @@ func (u *User) IsActiveUser() bool {
 
 func (u *User) IsVerifiedUser() bool {
 	return u.IsVerified
+}
+
+// HasActiveSubscription checks if user has an active paid subscription
+func (u *User) HasActiveSubscription() bool {
+	return u.SubscriptionStatus == "active" || u.SubscriptionStatus == "trialing"
+}
+
+// IsSubscriptionExpired checks if subscription has expired
+func (u *User) IsSubscriptionExpired() bool {
+	if u.SubscriptionExpiresAt == nil {
+		return false
+	}
+	return time.Now().After(*u.SubscriptionExpiresAt)
+}
+
+// GetSubscriptionTier returns the user's subscription tier
+func (u *User) GetSubscriptionTier() string {
+	return u.SubscriptionTier
+}
+
+// CanAccessFeature checks if user's tier allows access to a feature
+func (u *User) CanAccessFeature(requiredTier string) bool {
+	tierHierarchy := map[string]int{
+		"starter":      1,
+		"professional": 2,
+		"business":     3,
+		"enterprise":   4,
+	}
+
+	userLevel := tierHierarchy[u.SubscriptionTier]
+	requiredLevel := tierHierarchy[requiredTier]
+
+	return userLevel >= requiredLevel
 }
 
 // Validations

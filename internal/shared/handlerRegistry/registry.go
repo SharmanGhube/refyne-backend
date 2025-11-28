@@ -7,6 +7,7 @@ import (
 	email "github.com/refynehq/refyne-backend/internal/domains/email"
 	notification "github.com/refynehq/refyne-backend/internal/domains/notification"
 	otto "github.com/refynehq/refyne-backend/internal/domains/otto"
+	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription"
 	user "github.com/refynehq/refyne-backend/internal/domains/user"
 	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace"
 )
@@ -20,6 +21,7 @@ type HandlerRegistry struct {
 	Notification *notification.NotificationRegistry
 	Otto         *otto.OttoRegistry
 	Workspace    *workspace.WorkspaceRegistry
+	Subscription *subscription.SubscriptionRegistry
 }
 
 func NewHandlerRegistry(
@@ -31,6 +33,7 @@ func NewHandlerRegistry(
 	nr *notification.NotificationRegistry,
 	or *otto.OttoRegistry,
 	wr *workspace.WorkspaceRegistry,
+	sr *subscription.SubscriptionRegistry,
 ) *HandlerRegistry {
 	return &HandlerRegistry{
 		Auth:         ar,
@@ -41,5 +44,6 @@ func NewHandlerRegistry(
 		Notification: nr,
 		Otto:         or,
 		Workspace:    wr,
+		Subscription: sr,
 	}
 }

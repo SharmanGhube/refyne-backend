@@ -14,6 +14,7 @@ import (
 	email "github.com/refynehq/refyne-backend/internal/domains/email"
 	notification "github.com/refynehq/refyne-backend/internal/domains/notification"
 	otto "github.com/refynehq/refyne-backend/internal/domains/otto"
+	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription"
 	user "github.com/refynehq/refyne-backend/internal/domains/user"
 	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
@@ -40,6 +41,7 @@ var AppSet = wire.NewSet(
 	email.ProviderSet,
 	notification.ProviderSet,
 	otto.ProviderSet,
+	subscription.ProviderSet,
 	user.ProviderSet,
 	workspace.ProviderSet,
 

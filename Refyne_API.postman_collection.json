@@ -2009,6 +2009,344 @@
 				}
 			],
 			"description": "Test error handling and validation"
+		},
+		{
+			"name": "Subscription & Payments",
+			"item": [
+				{
+					"name": "1. Get Subscription Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status is 200', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('📊 Subscription Status:');",
+									"    console.log('  Tier:', jsonData.data.subscription_tier);",
+									"    console.log('  Status:', jsonData.data.subscription_status);",
+									"    console.log('  Expires:', jsonData.data.subscription_expires_at || 'N/A');",
+									"    console.log('  Customer ID:', jsonData.data.paddle_customer_id || 'N/A');",
+									"    console.log('  Subscription ID:', jsonData.data.paddle_subscription_id || 'N/A');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/subscription/status",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "status"]
+						},
+						"description": "Get current user's subscription status"
+					},
+					"response": []
+				},
+				{
+					"name": "2. Create Checkout - Starter ($29/mo)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.checkout_url) {",
+									"        console.log('✅ Checkout URL:', jsonData.data.checkout_url);",
+									"        console.log('🌐 Open this URL in browser to complete payment');",
+									"    }",
+									"}",
+									"",
+									"pm.test('Checkout created', function() {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Response has checkout URL', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('checkout_url');",
+									"    pm.expect(jsonData.data.checkout_url).to.include('paddle');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"starter\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create Paddle checkout session for Starter tier"
+					},
+					"response": []
+				},
+				{
+					"name": "3. Create Checkout - Professional ($99/mo)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"professional\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create checkout for Professional tier"
+					},
+					"response": []
+				},
+				{
+					"name": "4. Create Checkout - Business ($299/mo)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"business\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create checkout for Business tier"
+					},
+					"response": []
+				},
+				{
+					"name": "5. Create Checkout - Enterprise ($999/mo)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"enterprise\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Create checkout for Enterprise tier"
+					},
+					"response": []
+				},
+				{
+					"name": "6. Get Customer Portal URL",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.portal_url) {",
+									"        console.log('✅ Customer Portal URL:', jsonData.data.portal_url);",
+									"        console.log('🌐 User can manage subscription here');",
+									"    }",
+									"}",
+									"",
+									"pm.test('Portal URL retrieved', function() {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/subscription/portal",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "portal"]
+						},
+						"description": "Get Paddle customer portal URL (requires active subscription)"
+					},
+					"response": []
+				},
+				{
+					"name": "ERROR: Invalid Tier",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status is 400', function() {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test('Error message present', function() {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('error');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tier\": \"invalid_tier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/subscription/checkout",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "checkout"]
+						},
+						"description": "Test with invalid tier - should return 400"
+					},
+					"response": []
+				},
+				{
+					"name": "ERROR: No Authentication",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status is 401', function() {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/subscription/status",
+							"host": ["{{base_url}}"],
+							"path": ["subscription", "status"]
+						},
+						"description": "Test without authentication - should return 401"
+					},
+					"response": []
+				}
+			],
+			"description": "Paddle subscription endpoints - Phase 1.5"
 		}
 	]
 }

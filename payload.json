@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "price_id": "pri_01kb65b3gzy2xn21nh0zw922yn",
+      "quantity": 1
+    }
+  ],
+  "checkout": {
+    "url": "http://localhost:3000/subscription-success"
+  }
+}

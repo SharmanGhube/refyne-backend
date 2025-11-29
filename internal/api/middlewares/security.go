@@ -23,11 +23,12 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		// Content Security Policy
 		c.Writer.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self'; "+
-				"style-src 'self' 'unsafe-inline'; "+
+				"script-src 'self' 'unsafe-inline' https://cdn.paddle.com https://sandbox-cdn.paddle.com; "+
+				"style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://sandbox-cdn.paddle.com; "+
 				"img-src 'self' data: https:; "+
 				"font-src 'self' data:; "+
-				"connect-src 'self'; "+
+				"connect-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://sandbox-api.paddle.com https://api.paddle.com https://sandbox-checkout.paddle.com https://checkout.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com; "+
+				"frame-src https://sandbox-checkout.paddle.com https://checkout.paddle.com https://sandbox-buy.paddle.com https://buy.paddle.com; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'")
@@ -43,7 +44,7 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 				"gyroscope=(), "+
 				"magnetometer=(), "+
 				"microphone=(), "+
-				"payment=(), "+
+				"payment=(self), "+
 				"usb=()")
 
 		// Cache control for sensitive endpoints

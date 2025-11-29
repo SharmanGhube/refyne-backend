@@ -51,40 +51,83 @@ func NewPaddleSandboxService(cfg *config.PaddleConfig) (PaddleService, error) {
 	}, nil
 }
 
-// GenerateCheckoutURL creates a Paddle checkout session
+// GenerateCheckoutURL creates a Paddle checkout session using Paddle Billing API v3
 func (s *PaddleSandboxService) GenerateCheckoutURL(ctx *gin.Context, userID, userEmail, tier string) (string, *errors.AppError) {
-	productID, err := s.config.GetProductID(tier)
+	// Get the price ID (Paddle Billing v3 uses price IDs, not product IDs)
+	priceID, err := s.config.GetProductID(tier)
 	if err != nil {
-		s.logger.Error("Failed to get product ID",
+		s.logger.Error("Failed to get price ID",
 			zap.String("tier", tier),
 			zap.Error(err),
 		)
 		return "", subscriptionErrors.NewInvalidSubscriptionTierError(ctx, tier)
 	}
 
-	// Create checkout URL
-	// Note: Paddle SDK v3 uses different approach - this is simplified
-	// You'll need to construct the checkout URL based on Paddle's requirements
-	checkoutURL := fmt.Sprintf(
-		"https://checkout.paddle.com/checkout?product_id=%s&customer_email=%s&passthrough=%s",
-		productID,
-		userEmail,
-		userID, // Pass user ID in custom data to link back after payment
-	)
-
-	if s.config.IsSandboxMode() {
-		checkoutURL = fmt.Sprintf(
-			"https://sandbox-checkout.paddle.com/checkout?product_id=%s&customer_email=%s&passthrough=%s",
-			productID,
-			userEmail,
-			userID,
-		)
-	}
-
-	s.logger.Info("Generated checkout URL",
+	s.logger.Info("Creating Paddle transaction",
 		zap.String("user_id", userID),
 		zap.String("tier", tier),
+		zap.String("price_id", priceID),
 		zap.String("mode", s.GetMode()),
+	)
+
+	// Create transaction using Paddle SDK v3
+	// Build transaction items using catalog price
+	catalogItem := &paddle.TransactionItemFromCatalog{
+		PriceID:  priceID,
+		Quantity: 1,
+	}
+	
+	// Wrap in CreateTransactionItems union type
+	items := []paddle.CreateTransactionItems{
+		*paddle.NewCreateTransactionItemsTransactionItemFromCatalog(catalogItem),
+	}
+
+	// Build custom data
+	customData := paddle.CustomData{
+		"user_id": userID,
+		"tier":    tier,
+	}
+
+	// Create transaction request
+	// NOTE: Do NOT set Checkout.URL - Paddle requires a default checkout URL 
+	// to be configured in the dashboard. The Checkout.URL field is for overriding
+	// that default, not for setting success redirect URLs.
+	transactionReq := &paddle.CreateTransactionRequest{
+		Items:      items,
+		CustomData: customData,
+	}
+
+	s.logger.Info("Calling Paddle API to create transaction",
+		zap.String("price_id", priceID),
+		zap.String("customer_email", userEmail),
+	)
+
+	// Create the transaction via Paddle API
+	transaction, err := s.client.CreateTransaction(ctx.Request.Context(), transactionReq)
+	if err != nil {
+		s.logger.Error("Failed to create Paddle transaction",
+			zap.String("user_id", userID),
+			zap.String("tier", tier),
+			zap.Error(err),
+		)
+		return "", subscriptionErrors.NewCheckoutCreationError(ctx, err)
+	}
+
+	// Extract checkout URL from transaction
+	checkoutURL := ""
+	if transaction != nil && transaction.Checkout != nil && transaction.Checkout.URL != nil {
+		checkoutURL = *transaction.Checkout.URL
+	} else {
+		s.logger.Error("No checkout URL in Paddle transaction response",
+			zap.String("transaction_id", transaction.ID),
+		)
+		return "", subscriptionErrors.NewCheckoutCreationError(ctx, fmt.Errorf("no checkout URL returned from Paddle"))
+	}
+
+	s.logger.Info("Paddle transaction created successfully",
+		zap.String("transaction_id", transaction.ID),
+		zap.String("checkout_url", checkoutURL),
+		zap.String("user_id", userID),
 	)
 
 	return checkoutURL, nil

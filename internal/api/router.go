@@ -37,6 +37,11 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 	router.Use(middlewares.InputValidationMiddleware())
 	router.Use(middlewares.ValidateRequestSize(10 * 1024 * 1024)) // 10MB max request size
 
+	// Serve static files (checkout pages)
+	router.Static("/static", "./static")
+	router.StaticFile("/checkout.html", "./static/checkout.html")
+	router.StaticFile("/checkout-success.html", "./static/checkout-success.html")
+
 	// Initialize health checker
 	healthChecker := NewHealthChecker(db, redisClient)
 

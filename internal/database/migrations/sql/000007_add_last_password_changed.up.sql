@@ -3,8 +3,9 @@ ALTER TABLE users
 ADD COLUMN last_password_changed_at TIMESTAMPTZ;
 
 -- Add token_version column for invalidating tokens on password change
+-- Default 0 for new users (matches JWT generation expectations)
 ALTER TABLE users
-ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1;
+ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0;
 
 -- Set initial value to created_at for existing users
 UPDATE users

@@ -76,7 +76,7 @@ func (s *PaddleSandboxService) GenerateCheckoutURL(ctx *gin.Context, userID, use
 		PriceID:  priceID,
 		Quantity: 1,
 	}
-	
+
 	// Wrap in CreateTransactionItems union type
 	items := []paddle.CreateTransactionItems{
 		*paddle.NewCreateTransactionItemsTransactionItemFromCatalog(catalogItem),
@@ -89,7 +89,7 @@ func (s *PaddleSandboxService) GenerateCheckoutURL(ctx *gin.Context, userID, use
 	}
 
 	// Create transaction request
-	// NOTE: Do NOT set Checkout.URL - Paddle requires a default checkout URL 
+	// NOTE: Do NOT set Checkout.URL - Paddle requires a default checkout URL
 	// to be configured in the dashboard. The Checkout.URL field is for overriding
 	// that default, not for setting success redirect URLs.
 	transactionReq := &paddle.CreateTransactionRequest{

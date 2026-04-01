@@ -28,8 +28,10 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/subscription/handler"
 	"github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/subscription/services"
-	user2 "github.com/refynehq/refyne-backend/internal/domains/user"
+	user4 "github.com/refynehq/refyne-backend/internal/domains/user"
 	"github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
+	user3 "github.com/refynehq/refyne-backend/internal/domains/user/handler"
+	user2 "github.com/refynehq/refyne-backend/internal/domains/user/services"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace"
 	"github.com/refynehq/refyne-backend/internal/shared/audit"
 	"github.com/refynehq/refyne-backend/internal/shared/device"
@@ -79,7 +81,10 @@ func InitializeApp() (*bootstrap.App, error) {
 	authService := auth3.NewAuthService(coreUserRepository, passwordResetRepository, verificationRepository, accountSecurityRepository, emailService, client, auditLogger, deviceSessionService, validator, string2)
 	authHandler := auth4.NewAuthHandler(authService)
 	authRegistry := auth2.NewAuthRegistry(authHandler)
-	userRegistry := user2.NewUserRegistry()
+	settingsRepository := user2.NewSettingsRepository(db)
+	userService := user2.NewUserService(coreUserRepository, settingsRepository)
+	userHandler := user3.NewUserHandler(userService)
+	userRegistry := user4.NewUserRegistry(userHandler)
 	aiRegistry := ai.NewAIRegistry()
 	contextRegistry := context.NewContextRegistry()
 	emailRegistry := email.NewEmailRegistry()
@@ -105,7 +110,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	}
 	client2 := redis.ProvideRedisClient(redisClient)
 	engine := api.NewRouter(handlerRegistry, db, client2)
-	app, err := bootstrap.NewApp(configConfig, db, pool, engine, logger, riverService)
+	app, err := bootstrap.NewApp(configConfig, db, pool, engine, logger, riverService, client2)
 	if err != nil {
 		return nil, err
 	}
@@ -114,4 +119,4 @@ func InitializeApp() (*bootstrap.App, error) {
 
 // wire.go:
 
-var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, redis.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth2.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, subscription.ProviderSet, user2.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)
+var AppSet = wire.NewSet(config.ProviderSet, database.ProviderSet, logging.ProviderSet, redis.ProviderSet, riverqueue.ProviderSet, handlerregistry.ProviderSet, ai.ProviderSet, auth2.ProviderSet, context.ProviderSet, email.ProviderSet, notification.ProviderSet, otto.ProviderSet, subscription.ProviderSet, user4.ProviderSet, workspace.ProviderSet, api.ProviderSet, bootstrap.ProviderSet)

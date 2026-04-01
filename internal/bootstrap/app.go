@@ -11,8 +11,10 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database/migrations"
+	authUtils "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
@@ -26,6 +28,7 @@ type App struct {
 	server       *http.Server
 	logger       *zap.Logger
 	riverService *riverqueue.RiverService
+	redisClient  *redis.Client
 	Version      string
 }
 
@@ -36,7 +39,16 @@ func NewApp(
 	router *gin.Engine,
 	logger *zap.Logger,
 	riverService *riverqueue.RiverService,
+	redisClient *redis.Client,
 ) (*App, error) {
+	// Initialize token blacklist manager with Redis
+	authUtils.InitTokenBlacklistManager(redisClient)
+	logger.Info("Token blacklist manager initialized with Redis")
+
+	// Initialize OTP manager with Redis
+	authUtils.InitOTPManager(redisClient)
+	logger.Info("OTP manager initialized with Redis")
+
 	app := &App{
 		config:       cfg,
 		DB:           db,
@@ -44,6 +56,7 @@ func NewApp(
 		router:       router,
 		logger:       logger,
 		riverService: riverService,
+		redisClient:  redisClient,
 		Version:      os.Getenv("REFYNE_VERSION"),
 	}
 

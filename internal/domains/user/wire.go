@@ -3,6 +3,8 @@ package user
 import (
 	"github.com/google/wire"
 	userRepo "github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
+	userHandler "github.com/refynehq/refyne-backend/internal/domains/user/handler"
+	userServices "github.com/refynehq/refyne-backend/internal/domains/user/services"
 )
 
 var ProviderSet = wire.NewSet(
@@ -12,8 +14,12 @@ var ProviderSet = wire.NewSet(
 	// Repository
 	userRepo.NewCoreUserRepository,
 
-	// Handlers
+	// Settings Repository
+	userServices.NewSettingsRepository,
 
 	// Services
+	userServices.NewUserService,
 
+	// Handlers
+	userHandler.NewUserHandler,
 )

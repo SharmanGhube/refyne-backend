@@ -20,8 +20,8 @@ type InMemoryRateLimiter struct {
 }
 
 type rateBucket struct {
-	requests  []time.Time
-	mu        sync.Mutex
+	requests []time.Time
+	mu       sync.Mutex
 }
 
 type RateLimitRule struct {
@@ -38,10 +38,10 @@ func NewInMemoryRateLimiter(logger *zap.Logger) *InMemoryRateLimiter {
 		buckets: make(map[string]*rateBucket),
 		logger:  logger,
 	}
-	
+
 	// Start cleanup routine
 	go rl.cleanup()
-	
+
 	return rl
 }
 
@@ -49,14 +49,14 @@ func NewInMemoryRateLimiter(logger *zap.Logger) *InMemoryRateLimiter {
 func (rl *InMemoryRateLimiter) Middleware(rule RateLimitRule) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := rule.KeyFunc(c)
-		
+
 		allowed, remaining, resetTime := rl.checkLimit(key, rule)
-		
+
 		// Set rate limit headers
 		c.Header("X-RateLimit-Limit", fmt.Sprintf("%d", rule.Requests))
 		c.Header("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 		c.Header("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime.Unix()))
-		
+
 		if !allowed {
 			rl.logger.Warn("Rate limit exceeded",
 				zap.String("key", key),
@@ -64,7 +64,7 @@ func (rl *InMemoryRateLimiter) Middleware(rule RateLimitRule) gin.HandlerFunc {
 				zap.String("path", c.Request.URL.Path),
 				zap.String("method", c.Request.Method),
 			)
-			
+
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":       "RATE_LIMIT_EXCEEDED",
 				"message":     "Too many requests. Please try again later.",
@@ -73,7 +73,7 @@ func (rl *InMemoryRateLimiter) Middleware(rule RateLimitRule) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		c.Next()
 	}
 }
@@ -89,13 +89,13 @@ func (rl *InMemoryRateLimiter) checkLimit(key string, rule RateLimitRule) (bool,
 		rl.buckets[key] = bucket
 	}
 	rl.mu.Unlock()
-	
+
 	bucket.mu.Lock()
 	defer bucket.mu.Unlock()
-	
+
 	now := time.Now()
 	windowStart := now.Add(-rule.Window)
-	
+
 	// Remove old requests outside the time window
 	validRequests := make([]time.Time, 0)
 	for _, reqTime := range bucket.requests {
@@ -104,28 +104,28 @@ func (rl *InMemoryRateLimiter) checkLimit(key string, rule RateLimitRule) (bool,
 		}
 	}
 	bucket.requests = validRequests
-	
+
 	// Check if within limit
 	count := len(bucket.requests)
 	allowed := count < rule.Requests
-	
+
 	if allowed {
 		bucket.requests = append(bucket.requests, now)
 		count++
 	}
-	
+
 	remaining := rule.Requests - count
 	if remaining < 0 {
 		remaining = 0
 	}
-	
+
 	resetTime := now.Add(rule.Window)
 	if len(bucket.requests) > 0 {
 		// Reset time is when the oldest request in the window expires
 		oldestRequest := bucket.requests[0]
 		resetTime = oldestRequest.Add(rule.Window)
 	}
-	
+
 	return allowed, remaining, resetTime
 }
 
@@ -133,7 +133,7 @@ func (rl *InMemoryRateLimiter) checkLimit(key string, rule RateLimitRule) (bool,
 func (rl *InMemoryRateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		rl.mu.Lock()
 		now := time.Now()
@@ -163,12 +163,12 @@ func UserKey(c *gin.Context) string {
 	if route == "" {
 		route = c.Request.URL.Path
 	}
-	
+
 	// Try to get user ID from context (set by auth middleware)
 	if userID, exists := c.Get("userID"); exists {
 		return fmt.Sprintf("user:%v:%s", userID, route)
 	}
-	
+
 	// Fallback to IP if no user
 	return IPKey(c)
 }
@@ -179,7 +179,7 @@ func EmailKey(field string) KeyGenFunc {
 		if route == "" {
 			route = c.Request.URL.Path
 		}
-		
+
 		// Try to extract email from JSON body
 		var body map[string]interface{}
 		if err := c.ShouldBindJSON(&body); err == nil {
@@ -189,7 +189,7 @@ func EmailKey(field string) KeyGenFunc {
 				return fmt.Sprintf("email:%s:%s", email, route)
 			}
 		}
-		
+
 		// Fallback to IP
 		return IPKey(c)
 	}
@@ -202,37 +202,43 @@ var (
 		Window:   time.Hour,
 		KeyFunc:  IPKey,
 	}
-	
+
 	LoginLimit = RateLimitRule{
 		Requests: 10,
 		Window:   time.Hour,
 		KeyFunc:  IPKey,
 	}
-	
+
+	RefreshLimit = RateLimitRule{
+		Requests: 20,
+		Window:   time.Hour,
+		KeyFunc:  IPKey,
+	}
+
 	OTPRequestLimit = RateLimitRule{
 		Requests: 5,
 		Window:   15 * time.Minute,
 		KeyFunc:  IPKey,
 	}
-	
+
 	PasswordResetLimit = RateLimitRule{
 		Requests: 3,
 		Window:   time.Hour,
 		KeyFunc:  IPKey,
 	}
-	
+
 	VerificationResendLimit = RateLimitRule{
 		Requests: 5,
 		Window:   time.Hour,
 		KeyFunc:  IPKey,
 	}
-	
+
 	ProtectedEndpointLimit = RateLimitRule{
 		Requests: 100,
 		Window:   time.Minute,
 		KeyFunc:  UserKey,
 	}
-	
+
 	GeneralAPILimit = RateLimitRule{
 		Requests: 60,
 		Window:   time.Minute,

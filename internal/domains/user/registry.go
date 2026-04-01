@@ -1,11 +1,15 @@
 package user
 
+import (
+	userHandler "github.com/refynehq/refyne-backend/internal/domains/user/handler"
+)
+
 type UserRegistry struct {
-	// Add necessary fields for the UserRegistry
+	userHandler.UserHandler
 }
 
-func NewUserRegistry() *UserRegistry {
+func NewUserRegistry(userHandler userHandler.UserHandler) *UserRegistry {
 	return &UserRegistry{
-		// Initialize necessary fields
+		UserHandler: userHandler,
 	}
 }

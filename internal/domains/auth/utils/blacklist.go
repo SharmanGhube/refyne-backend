@@ -1,129 +1,118 @@
 package auth
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
-// TokenBlacklistEntry represents a blacklisted token with expiry
-type TokenBlacklistEntry struct {
-	Token     string
-	ExpiresAt time.Time
-	RevokedAt time.Time
-	Reason    string // "logout", "password_reset", "security"
-}
-
-// TokenBlacklistManager manages revoked/blacklisted JWT tokens
-// This is an in-memory implementation - for production with multiple instances,
-// consider using Redis or a database-backed solution
-type TokenBlacklistManager struct {
-	tokens map[string]*TokenBlacklistEntry
-	mu     sync.RWMutex
-}
-
+// globalBlacklistManager holds the active blacklist manager (either Redis or in-memory).
 var (
-	blacklistManager     *TokenBlacklistManager
-	blacklistManagerOnce sync.Once
+	globalBlacklistManager     TokenBlacklistManager
+	globalBlacklistManagerOnce sync.Once
+	globalBlacklistManagerMu   sync.RWMutex
 )
 
-// GetTokenBlacklistManager returns the singleton token blacklist manager
-func GetTokenBlacklistManager() *TokenBlacklistManager {
-	blacklistManagerOnce.Do(func() {
-		blacklistManager = &TokenBlacklistManager{
-			tokens: make(map[string]*TokenBlacklistEntry),
-		}
-		// Start cleanup goroutine
-		go blacklistManager.cleanup()
-	})
-	return blacklistManager
+// LegacyTokenBlacklistManager provides backward-compatible API.
+// It wraps the new TokenBlacklistManager interface.
+type LegacyTokenBlacklistManager struct {
+	manager TokenBlacklistManager
 }
 
-// BlacklistToken adds a token to the blacklist
-func (tbm *TokenBlacklistManager) BlacklistToken(token string, expiresAt time.Time, reason string) {
-	tbm.mu.Lock()
-	defer tbm.mu.Unlock()
+// InitTokenBlacklistManager initializes the global token blacklist manager with Redis.
+// Call this during application startup with a Redis client.
+// If redisClient is nil, falls back to in-memory implementation.
+func InitTokenBlacklistManager(redisClient *redis.Client) {
+	globalBlacklistManagerMu.Lock()
+	defer globalBlacklistManagerMu.Unlock()
 
-	tbm.tokens[token] = &TokenBlacklistEntry{
-		Token:     token,
-		ExpiresAt: expiresAt,
-		RevokedAt: time.Now(),
-		Reason:    reason,
+	if redisClient != nil {
+		globalBlacklistManager = NewRedisTokenBlacklistManager(redisClient)
+	} else {
+		globalBlacklistManager = GetInMemoryTokenBlacklistManager()
 	}
 }
 
-// IsBlacklisted checks if a token is blacklisted
-func (tbm *TokenBlacklistManager) IsBlacklisted(token string) bool {
-	tbm.mu.RLock()
-	defer tbm.mu.RUnlock()
+// GetTokenBlacklistManager returns the backward-compatible blacklist manager.
+// This maintains the existing API signature for existing code.
+func GetTokenBlacklistManager() *LegacyTokenBlacklistManager {
+	globalBlacklistManagerOnce.Do(func() {
+		globalBlacklistManagerMu.Lock()
+		defer globalBlacklistManagerMu.Unlock()
+		if globalBlacklistManager == nil {
+			// Default to in-memory if not initialized
+			globalBlacklistManager = GetInMemoryTokenBlacklistManager()
+		}
+	})
 
-	entry, exists := tbm.tokens[token]
-	if !exists {
+	globalBlacklistManagerMu.RLock()
+	defer globalBlacklistManagerMu.RUnlock()
+
+	return &LegacyTokenBlacklistManager{
+		manager: globalBlacklistManager,
+	}
+}
+
+// BlacklistToken adds a token to the blacklist (backward-compatible API).
+func (l *LegacyTokenBlacklistManager) BlacklistToken(token string, expiresAt time.Time, reason string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// Ignore error for backward compatibility
+	_ = l.manager.BlacklistToken(ctx, token, expiresAt, reason)
+}
+
+// IsBlacklisted checks if a token is blacklisted (backward-compatible API).
+func (l *LegacyTokenBlacklistManager) IsBlacklisted(token string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result, err := l.manager.IsBlacklisted(ctx, token)
+	if err != nil {
+		// On error, assume not blacklisted to avoid blocking users
 		return false
 	}
-
-	// Token is blacklisted and not yet expired
-	return time.Now().Before(entry.ExpiresAt)
+	return result
 }
 
-// RemoveToken removes a token from the blacklist (admin function)
-func (tbm *TokenBlacklistManager) RemoveToken(token string) {
-	tbm.mu.Lock()
-	defer tbm.mu.Unlock()
-
-	delete(tbm.tokens, token)
+// RemoveToken removes a token from the blacklist.
+func (l *LegacyTokenBlacklistManager) RemoveToken(token string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = l.manager.RemoveToken(ctx, token)
 }
 
-// GetBlacklistedCount returns the number of blacklisted tokens
-func (tbm *TokenBlacklistManager) GetBlacklistedCount() int {
-	tbm.mu.RLock()
-	defer tbm.mu.RUnlock()
-
-	return len(tbm.tokens)
-}
-
-// cleanup periodically removes expired tokens from the blacklist
-func (tbm *TokenBlacklistManager) cleanup() {
-	ticker := time.NewTicker(10 * time.Minute)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		tbm.mu.Lock()
-		now := time.Now()
-
-		// Remove expired tokens
-		for token, entry := range tbm.tokens {
-			if now.After(entry.ExpiresAt) {
-				delete(tbm.tokens, token)
-			}
-		}
-
-		tbm.mu.Unlock()
+// GetBlacklistedCount returns the number of blacklisted tokens.
+func (l *LegacyTokenBlacklistManager) GetBlacklistedCount() int {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	count, err := l.manager.GetBlacklistedCount(ctx)
+	if err != nil {
+		return 0
 	}
+	return count
 }
 
-// ClearAll removes all tokens from blacklist (for testing/admin purposes)
-func (tbm *TokenBlacklistManager) ClearAll() {
-	tbm.mu.Lock()
-	defer tbm.mu.Unlock()
-
-	tbm.tokens = make(map[string]*TokenBlacklistEntry)
-}
-
-// GetTokenInfo returns information about a blacklisted token
-func (tbm *TokenBlacklistManager) GetTokenInfo(token string) (*TokenBlacklistEntry, bool) {
-	tbm.mu.RLock()
-	defer tbm.mu.RUnlock()
-
-	entry, exists := tbm.tokens[token]
-	if !exists {
+// GetTokenInfo returns information about a blacklisted token.
+func (l *LegacyTokenBlacklistManager) GetTokenInfo(token string) (*TokenBlacklistEntry, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	entry, exists, err := l.manager.GetTokenInfo(ctx, token)
+	if err != nil {
 		return nil, false
 	}
+	return entry, exists
+}
 
-	// Return a copy to prevent external modification
-	return &TokenBlacklistEntry{
-		Token:     entry.Token,
-		ExpiresAt: entry.ExpiresAt,
-		RevokedAt: entry.RevokedAt,
-		Reason:    entry.Reason,
-	}, true
+// ClearAll removes all tokens from blacklist.
+func (l *LegacyTokenBlacklistManager) ClearAll() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = l.manager.ClearAll(ctx)
+}
+
+// GetUnderlyingManager returns the underlying TokenBlacklistManager.
+// Use this for new code that wants the full interface with context and error handling.
+func (l *LegacyTokenBlacklistManager) GetUnderlyingManager() TokenBlacklistManager {
+	return l.manager
 }

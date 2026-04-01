@@ -212,3 +212,114 @@ func (r *CoreUserRepositoryImpl) UpdatePassword(c *gin.Context, userID, hashedPa
 func (r *CoreUserRepositoryImpl) GetDB() *sqlx.DB {
 	return r.db
 }
+
+// UpdateUser updates user profile information
+func (r *CoreUserRepositoryImpl) UpdateUser(c *gin.Context, user *userModels.User) (*userModels.User, *errors.AppError) {
+	r.logger.Info("Updating user",
+		zap.String("userID", user.ID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+
+	var updatedUser userModels.User
+	err := r.db.GetContext(c.Request.Context(), &updatedUser, updateUserQuery,
+		user.ID,
+		user.FirstName,
+		user.LastName,
+		user.Username,
+		user.Status,
+		user.IsActive,
+		user.IsVerified,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.logger.Warn("User not found for update",
+				zap.String("userID", user.ID),
+				zap.String("requestID", middlewares.GetRequestID(c)))
+			return nil, coreRepoErrors.NewUserNotFoundError(c, "User not found for update")
+		}
+		r.logger.Error("Failed to update user",
+			zap.Error(err),
+			zap.String("userID", user.ID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return nil, coreRepoErrors.NewDatabaseError(c, "UpdateUser", err)
+	}
+
+	r.logger.Info("User updated successfully",
+		zap.String("userID", user.ID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+	return &updatedUser, nil
+}
+
+// SoftDeleteUser marks a user as deleted
+func (r *CoreUserRepositoryImpl) SoftDeleteUser(c *gin.Context, userID string) *errors.AppError {
+	r.logger.Info("Soft deleting user",
+		zap.String("userID", userID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+
+	result, err := r.db.ExecContext(c.Request.Context(), softDeleteUserQuery, userID)
+	if err != nil {
+		r.logger.Error("Failed to soft delete user",
+			zap.Error(err),
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "SoftDeleteUser", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.logger.Error("Failed to get rows affected",
+			zap.Error(err),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "SoftDeleteUser", err)
+	}
+
+	if rowsAffected == 0 {
+		r.logger.Warn("No user found for deletion",
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewUserNotFoundError(c, "User not found for deletion")
+	}
+
+	r.logger.Info("User soft deleted successfully",
+		zap.String("userID", userID),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+	return nil
+}
+
+// UpdateOnboardingStatus updates the user's onboarding completion status
+func (r *CoreUserRepositoryImpl) UpdateOnboardingStatus(c *gin.Context, userID string, completed bool) *errors.AppError {
+	r.logger.Info("Updating onboarding status",
+		zap.String("userID", userID),
+		zap.Bool("completed", completed),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+
+	query := `UPDATE users SET onboarding_completed = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	result, err := r.db.ExecContext(c.Request.Context(), query, userID, completed)
+	if err != nil {
+		r.logger.Error("Failed to update onboarding status",
+			zap.Error(err),
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "UpdateOnboardingStatus", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		r.logger.Error("Failed to get rows affected",
+			zap.Error(err),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewDatabaseError(c, "UpdateOnboardingStatus", err)
+	}
+
+	if rowsAffected == 0 {
+		r.logger.Warn("No user found for onboarding update",
+			zap.String("userID", userID),
+			zap.String("requestID", middlewares.GetRequestID(c)))
+		return coreRepoErrors.NewUserNotFoundError(c, "User not found for onboarding update")
+	}
+
+	r.logger.Info("Onboarding status updated successfully",
+		zap.String("userID", userID),
+		zap.Bool("completed", completed),
+		zap.String("requestID", middlewares.GetRequestID(c)))
+	return nil
+}

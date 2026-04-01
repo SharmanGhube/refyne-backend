@@ -9,6 +9,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
+	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 
@@ -59,6 +60,9 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 
 		// Subscription routes (checkout, webhooks, status)
 		subscription.SetupSubscriptionRoutes(apiRoutes, registry)
+
+		// User routes (profile, settings, onboarding)
+		user.SetupUserRoutes(apiRoutes, registry)
 
 		// Protected test route
 		protected := apiRoutes.Group("/protected")

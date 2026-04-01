@@ -23,6 +23,12 @@ type CoreUserRepository interface {
 	UpdateLastLogin(c *gin.Context, userID string, ipAddress *string, userAgent *string) *errors.AppError
 	VerifyUser(c *gin.Context, userID string) *errors.AppError
 	UpdatePassword(c *gin.Context, userID, hashedPassword string) *errors.AppError
+
+	// Profile update operations
+	UpdateUser(c *gin.Context, user *userModels.User) (*userModels.User, *errors.AppError)
+	SoftDeleteUser(c *gin.Context, userID string) *errors.AppError
+	UpdateOnboardingStatus(c *gin.Context, userID string, completed bool) *errors.AppError
+
 	GetDB() *sqlx.DB
 }
 

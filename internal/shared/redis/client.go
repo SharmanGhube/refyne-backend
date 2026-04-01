@@ -39,17 +39,17 @@ func NewRedisClient(cfg *config.Config) (*Client, error) {
 	defer cancel()
 	
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		logger.Error("Failed to connect to Redis",
+		logger.Warn("Redis connection failed - app will continue without Redis caching",
 			zap.String("addr", addr),
 			zap.Error(err),
 		)
-		return nil, fmt.Errorf("redis connection failed: %w", err)
+		// Continue anyway - app should work without Redis
+	} else {
+		logger.Info("Redis connection established successfully",
+			zap.String("addr", addr),
+			zap.Int("db", cfg.Redis.DB),
+		)
 	}
-	
-	logger.Info("Redis connection established successfully",
-		zap.String("addr", addr),
-		zap.Int("db", cfg.Redis.DB),
-	)
 	
 	return &Client{
 		Client: rdb,

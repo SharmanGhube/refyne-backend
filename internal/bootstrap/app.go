@@ -165,7 +165,7 @@ func (a *App) Stop(ctx context.Context) error {
 }
 
 func (a *App) runMigrations() error {
-	a.logger.Info("Starting database migration check")
+	a.logger.Info("Starting database migration check", zap.String("environment", a.config.Environment), zap.Bool("auto_migrate", a.config.Database.AutoMigrate))
 
 	if a.config.Environment == "production" {
 		if !a.config.Database.AutoMigrate {
@@ -186,9 +186,10 @@ func (a *App) runMigrations() error {
 			return fmt.Errorf("database is in dirty state at version %d", version)
 		}
 
-		a.logger.Info("Current migration status", zap.Uint("version", version))
+		a.logger.Info("Current migration status", zap.Uint("version", version), zap.Bool("dirty", dirty))
 	}
 
+	a.logger.Info("Attempting to run migrations")
 	if err := migrations.MigrateUp(); err != nil {
 		if err == migrate.ErrNoChange {
 			a.logger.Info("No migrations to apply")

@@ -20,16 +20,19 @@ func MigrateUp() error {
 	dsn := createConnectionString()
 	migrationsPath := getMigrationsPath()
 
+	logger.Info("Creating migration instance", zap.String("path", migrationsPath))
+
 	m, err := migrate.New(
 		"file://"+migrationsPath,
 		dsn,
 	)
 	if err != nil {
-		logger.Error("Failed to create migration instance", zap.Error(err))
+		logger.Error("Failed to create migration instance", zap.Error(err), zap.String("path", "file://"+migrationsPath))
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
 	defer m.Close()
 
+	logger.Info("Running MigrateUp")
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		logger.Error("Failed to apply migrations", zap.Error(err))
 		return fmt.Errorf("failed to apply migrations: %w", err)
@@ -253,14 +256,16 @@ func getMigrationsPath() string {
 	workDir, err := os.Getwd()
 	if err != nil {
 		logger.Warn("Could not get working directory, using fallback", zap.Error(err))
-		return "migrations" // Fallback
+		workDir = "/app" // Docker fallback
 	}
 
-	// Convert Windows path to proper file:// URL format
+	// Build the path
 	path := filepath.Join(workDir, "internal", "database", "migrations", "sql")
 
-	// Replace backslashes with forward slashes
+	// Convert to forward slashes for consistency
 	path = filepath.ToSlash(path)
+
+	logger.Info("Migrations path resolved", zap.String("path", path), zap.String("workdir", workDir))
 
 	return path
 }

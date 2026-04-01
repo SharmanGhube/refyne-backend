@@ -44,6 +44,9 @@ COPY --from=builder /app/static /app/static
 # Copy migrations
 COPY --from=builder /app/internal/database/migrations /app/internal/database/migrations
 
+# Copy email templates
+COPY --from=builder /app/internal/domains/email/templates /app/internal/domains/email/templates
+
 # Set ownership
 RUN chown -R appuser:appgroup /app
 

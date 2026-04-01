@@ -20,9 +20,9 @@ type Client struct {
 // NewRedisClient creates a new Redis client instance
 func NewRedisClient(cfg *config.Config) (*Client, error) {
 	logger := logging.GetComponentLogger("redis")
-	
+
 	addr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
-	
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         addr,
 		Password:     cfg.Redis.Password,
@@ -33,11 +33,11 @@ func NewRedisClient(cfg *config.Config) (*Client, error) {
 		PoolSize:     10,
 		MinIdleConns: 5,
 	})
-	
+
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		logger.Warn("Redis connection failed - app will continue without Redis caching",
 			zap.String("addr", addr),
@@ -50,7 +50,7 @@ func NewRedisClient(cfg *config.Config) (*Client, error) {
 			zap.Int("db", cfg.Redis.DB),
 		)
 	}
-	
+
 	return &Client{
 		Client: rdb,
 		logger: logger,

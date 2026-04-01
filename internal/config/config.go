@@ -11,13 +11,13 @@ import (
 type Config struct {
 	version string
 
-	Environment  string
-	Port         string
-	FrontendURL  string
-	SMTP         SMTPConfig
-	Database     DatabaseConfig
-	Redis        RedisConfig
-	Instagram    InstagramConfig
+	Environment string
+	Port        string
+	FrontendURL string
+	SMTP        SMTPConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	Instagram   InstagramConfig
 }
 
 type SMTPConfig struct {
@@ -66,14 +66,6 @@ func NewConfig() (*Config, error) {
 	if err := godotenv.Load(".env"); err != nil {
 		logger.Warn("Could not load environment file", zap.String("file", ".env"), zap.Error(err))
 	}
-
-	// DEBUG: Log all environment variables for troubleshooting
-	logger.Info("DEBUG - Redis environment variables",
-		zap.String("REDIS_HOST", os.Getenv("REDIS_HOST")),
-		zap.String("REDIS_PORT", os.Getenv("REDIS_PORT")),
-		zap.String("REDIS_PASSWORD", os.Getenv("REDIS_PASSWORD")),
-		zap.String("APP_ENV", os.Getenv("APP_ENV")),
-	)
 
 	autoMigrate := os.Getenv("AUTO_MIGRATE") == "true"
 	port := os.Getenv("PORT")

@@ -55,7 +55,10 @@ type InstagramConfig struct {
 func NewConfig() (*Config, error) {
 	logger := logging.GetComponentLogger("config")
 
-	env := os.Getenv("ENVIRONMENT")
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = os.Getenv("ENVIRONMENT")
+	}
 	if env == "" {
 		env = "development"
 	}

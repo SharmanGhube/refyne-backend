@@ -1,73 +1,13 @@
 version: '3.8'
 
 services:
-  # Refyne Backend (from docker-compose.yml)
-  refyne:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    environment:
-      APP_ENV: development
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_NAME: refyne
-      DB_SSL_MODE: disable
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      LOG_LEVEL: info
-      AUTO_MIGRATE: 'true'
-    depends_on:
-      - db
-      - redis
-    networks:
-      - monitoring
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/api/health']
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # The main Refyne backend (share from main docker-compose)
+  # Assumes main docker-compose is running with -f docker-compose.yml
 
-  # PostgreSQL Database
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: refyne
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - monitoring
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - monitoring
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Prometheus - Metrics Collection
+  # Prometheus - Metrics collection and storage
   prometheus:
     image: prom/prometheus:latest
+    container_name: refyne-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -76,48 +16,60 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
-    depends_on:
-      - refyne
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'  # Allow hot reload via API
     networks:
-      - monitoring
+      - refyne-network
+    depends_on:
+      - refyne-backend
     environment:
-      TZ: UTC
+      TZ: 'UTC'
+    restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:9090']
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # Grafana - Visualization & Dashboards
+  # Grafana - Visualization and dashboards
   grafana:
     image: grafana/grafana:latest
+    container_name: refyne-grafana
     ports:
       - "3000:3000"
     volumes:
-      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/refyne-dashboard.json:ro
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_USERS_ALLOW_SIGN_UP=false
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    networks:
+      - refyne-network
     depends_on:
       - prometheus
-    networks:
-      - monitoring
+    restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:3000/api/health']
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
 volumes:
-  postgres_data:
-  redis_data:
   prometheus_data:
+    driver: local
   grafana_data:
+    driver: local
 
 networks:
-  monitoring:
+  refyne-network:
     driver: bridge
+
+# Note: This compose file expects the main refyne-backend to be running
+# Start with: docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml up -d

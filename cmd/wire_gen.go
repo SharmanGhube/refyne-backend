@@ -25,14 +25,17 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/otto"
 	"github.com/refynehq/refyne-backend/internal/domains/subscription"
 	config2 "github.com/refynehq/refyne-backend/internal/domains/subscription/config"
-	"github.com/refynehq/refyne-backend/internal/domains/subscription/handler"
-	"github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
-	"github.com/refynehq/refyne-backend/internal/domains/subscription/services"
+	handler2 "github.com/refynehq/refyne-backend/internal/domains/subscription/handler"
+	repository2 "github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
+	services2 "github.com/refynehq/refyne-backend/internal/domains/subscription/services"
 	user4 "github.com/refynehq/refyne-backend/internal/domains/user"
 	"github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
 	user3 "github.com/refynehq/refyne-backend/internal/domains/user/handler"
 	user2 "github.com/refynehq/refyne-backend/internal/domains/user/services"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace"
+	"github.com/refynehq/refyne-backend/internal/domains/workspace/core/repository"
+	"github.com/refynehq/refyne-backend/internal/domains/workspace/handler"
+	"github.com/refynehq/refyne-backend/internal/domains/workspace/services"
 	"github.com/refynehq/refyne-backend/internal/shared/audit"
 	"github.com/refynehq/refyne-backend/internal/shared/device"
 	"github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
@@ -90,18 +93,23 @@ func InitializeApp() (*bootstrap.App, error) {
 	emailRegistry := email.NewEmailRegistry()
 	notificationRegistry := notification.NewNotificationRegistry()
 	ottoRegistry := otto.NewOttoRegistry()
-	workspaceRegistry := workspace.NewWorkspaceRegistry()
+	workspaceRepository := repository.NewWorkspaceRepository(db)
+	workspaceMemberRepository := repository.NewWorkspaceMemberRepository(db)
+	workspaceService := services.NewWorkspaceService(workspaceRepository, workspaceMemberRepository)
+	memberService := services.NewMemberService(workspaceRepository, workspaceMemberRepository)
+	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, memberService)
+	workspaceRegistry := workspace.NewWorkspaceRegistry(workspaceHandler)
 	paddleConfig, err := config2.NewPaddleConfig(logger)
 	if err != nil {
 		return nil, err
 	}
-	paddleService, err := services.NewPaddleService(paddleConfig)
+	paddleService, err := services2.NewPaddleService(paddleConfig)
 	if err != nil {
 		return nil, err
 	}
-	subscriptionRepository := repository.NewSubscriptionRepository(db)
-	webhookService := services.NewWebhookService(subscriptionRepository, logger)
-	subscriptionHandler := handler.NewSubscriptionHandler(paddleService, webhookService, subscriptionRepository)
+	subscriptionRepository := repository2.NewSubscriptionRepository(db)
+	webhookService := services2.NewWebhookService(subscriptionRepository, logger)
+	subscriptionHandler := handler2.NewSubscriptionHandler(paddleService, webhookService, subscriptionRepository)
 	subscriptionRegistry := subscription.NewSubscriptionRegistry(subscriptionHandler)
 	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, notificationRegistry, ottoRegistry, workspaceRegistry, subscriptionRegistry)
 	redisClient, err := redis.NewRedisClient(configConfig)

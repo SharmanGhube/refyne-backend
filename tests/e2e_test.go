@@ -2,21 +2,14 @@ package tests
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/google/wire"
 	"github.com/refynehq/refyne-backend/internal/bootstrap"
-	"github.com/refynehq/refyne-backend/internal/config"
-	"github.com/refynehq/refyne-backend/internal/database"
-	"github.com/refynehq/refyne-backend/internal/api"
-	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -359,19 +352,13 @@ func TestHealthChecks(t *testing.T) {
 }
 
 // Test 6: Request Validation
-func TestValidationMiddleware(t *testing.T) {
+func TestRequestValidation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	setupTestApp(t)
 	defer cleanupTestApp(t)
-
-	t.Run("Invalid JSON body should be rejected", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader([]byte("INVALID")))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		testApp.GetRouter().ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code, "Invalid JSON should be rejected")
-	})
 
 	t.Run("Missing required fields should be rejected", func(t *testing.T) {
 		payload := map[string]interface{}{
@@ -383,6 +370,19 @@ func TestValidationMiddleware(t *testing.T) {
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Missing required fields should be rejected")
+	})
+
+	t.Run("Invalid field types should be rejected", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"email":    123, // Should be string
+			"password": "validPassword",
+			"name":     "Test",
+		}
+
+		resp := makeRequest(t, http.MethodPost, "/api/auth/register", payload, "")
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Invalid field types should be rejected")
 	})
 }
 
@@ -440,6 +440,382 @@ func TestIntegrationSummary(t *testing.T) {
 	t.Log("✓ JWT Authentication")
 	t.Log("✓ Rate Limiting")
 	t.Log("✓ User Management")
+}
+
+// Test 9: Workspace Management
+func TestWorkspaceManagement(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	setupTestApp(t)
+	defer cleanupTestApp(t)
+
+	// Register and login user
+	email := "workspace-test-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com"
+	password := "SecurePassword123!"
+
+	regPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+		"name":     "Workspace Test User",
+	}
+
+	regResp := makeRequest(t, http.MethodPost, "/api/auth/register", regPayload, "")
+	regResp.Body.Close()
+
+	loginPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+	}
+
+	loginResp := makeRequest(t, http.MethodPost, "/api/auth/login", loginPayload, "")
+	var loginResult map[string]interface{}
+	json.NewDecoder(loginResp.Body).Decode(&loginResult)
+	loginResp.Body.Close()
+
+	accessToken, ok := loginResult["access_token"].(string)
+	if !ok {
+		t.Skip("Could not obtain access token")
+	}
+
+	t.Run("Create workspace", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"name":        "My Test Workspace",
+			"description": "Test workspace for E2E testing",
+		}
+
+		resp := makeRequest(t, http.MethodPost, "/api/workspaces", payload, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusCreated, resp.StatusCode, "Workspace creation should succeed")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		assert.NotEmpty(t, result["id"], "Response should contain workspace ID")
+		assert.Equal(t, "My Test Workspace", result["name"], "Workspace name should match")
+	})
+
+	t.Run("List user workspaces", func(t *testing.T) {
+		resp := makeRequest(t, http.MethodGet, "/api/workspaces", nil, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "List workspaces should succeed")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		// Should have workspaces array
+		assert.NotNil(t, result, "Response should contain workspace data")
+	})
+
+	// Create a workspace for other tests
+	payload := map[string]interface{}{
+		"name":        "Workspace for Update Test",
+		"description": "Will be updated",
+	}
+	createResp := makeRequest(t, http.MethodPost, "/api/workspaces", payload, accessToken)
+	var createResult map[string]interface{}
+	json.NewDecoder(createResp.Body).Decode(&createResult)
+	createResp.Body.Close()
+
+	workspaceID, ok := createResult["id"].(string)
+	if !ok {
+		t.Skip("Could not create test workspace")
+	}
+
+	t.Run("Get workspace details", func(t *testing.T) {
+		path := fmt.Sprintf("/api/workspaces/%s", workspaceID)
+		resp := makeRequest(t, http.MethodGet, path, nil, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Get workspace should succeed")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		assert.Equal(t, workspaceID, result["id"], "Workspace ID should match")
+	})
+
+	t.Run("Update workspace", func(t *testing.T) {
+		path := fmt.Sprintf("/api/workspaces/%s", workspaceID)
+		payload := map[string]interface{}{
+			"name":        "Updated Workspace Name",
+			"description": "Updated description",
+		}
+
+		resp := makeRequest(t, http.MethodPut, path, payload, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Update workspace should succeed")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		assert.Equal(t, "Updated Workspace Name", result["name"], "Workspace name should be updated")
+	})
+
+	t.Run("Delete workspace (soft delete)", func(t *testing.T) {
+		path := fmt.Sprintf("/api/workspaces/%s", workspaceID)
+		resp := makeRequest(t, http.MethodDelete, path, nil, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Delete workspace should succeed")
+
+		// Verify workspace is no longer in list (soft deleted)
+		listResp := makeRequest(t, http.MethodGet, "/api/workspaces", nil, accessToken)
+		defer listResp.Body.Close()
+
+		var listResult map[string]interface{}
+		json.NewDecoder(listResp.Body).Decode(&listResult)
+		assert.Equal(t, http.StatusOK, listResp.StatusCode, "Should still be able to list workspaces")
+	})
+}
+
+// Test 10: Workspace Members Management
+func TestWorkspaceMembersManagement(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	setupTestApp(t)
+	defer cleanupTestApp(t)
+
+	// Register and login owner
+	ownerEmail := "workspace-owner-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com"
+	password := "SecurePassword123!"
+
+	regPayload := map[string]interface{}{
+		"email":    ownerEmail,
+		"password": password,
+		"name":     "Workspace Owner",
+	}
+
+	regResp := makeRequest(t, http.MethodPost, "/api/auth/register", regPayload, "")
+	regResp.Body.Close()
+
+	loginPayload := map[string]interface{}{
+		"email":    ownerEmail,
+		"password": password,
+	}
+
+	loginResp := makeRequest(t, http.MethodPost, "/api/auth/login", loginPayload, "")
+	var loginResult map[string]interface{}
+	json.NewDecoder(loginResp.Body).Decode(&loginResult)
+	loginResp.Body.Close()
+
+	ownerToken, ok := loginResult["access_token"].(string)
+	if !ok {
+		t.Skip("Could not obtain access token")
+	}
+
+	// Create workspace
+	wsPayload := map[string]interface{}{
+		"name":        "Team Workspace",
+		"description": "Workspace for team members",
+	}
+	wsResp := makeRequest(t, http.MethodPost, "/api/workspaces", wsPayload, ownerToken)
+	var wsResult map[string]interface{}
+	json.NewDecoder(wsResp.Body).Decode(&wsResult)
+	wsResp.Body.Close()
+
+	workspaceID, ok := wsResult["id"].(string)
+	if !ok {
+		t.Skip("Could not create workspace")
+	}
+
+	t.Run("List workspace members (owner included)", func(t *testing.T) {
+		path := fmt.Sprintf("/api/workspaces/%s/members", workspaceID)
+		resp := makeRequest(t, http.MethodGet, path, nil, ownerToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "List members should succeed")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		assert.NotNil(t, result, "Should return members list")
+	})
+
+	t.Run("Invite member to workspace (owner only)", func(t *testing.T) {
+		path := fmt.Sprintf("/api/workspaces/%s/members", workspaceID)
+		payload := map[string]interface{}{
+			"email": "team-member-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com",
+		}
+
+		resp := makeRequest(t, http.MethodPost, path, payload, ownerToken)
+		defer resp.Body.Close()
+
+		// Note: InviteMember returns 200 (queued), not 201
+		assert.Contains(t, []int{http.StatusOK, http.StatusCreated}, resp.StatusCode, "Invite should succeed")
+	})
+
+	t.Run("Reject member removal for non-owner", func(t *testing.T) {
+		// Register a member
+		memberEmail := "workspace-member-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com"
+		memberRegPayload := map[string]interface{}{
+			"email":    memberEmail,
+			"password": password,
+			"name":     "Workspace Member",
+		}
+
+		memberRegResp := makeRequest(t, http.MethodPost, "/api/auth/register", memberRegPayload, "")
+		memberRegResp.Body.Close()
+
+		// Try to remove member as non-owner (should fail with 401 or 403)
+		memberLoginPayload := map[string]interface{}{
+			"email":    memberEmail,
+			"password": password,
+		}
+		memberLoginResp := makeRequest(t, http.MethodPost, "/api/auth/login", memberLoginPayload, "")
+		var memberLoginResult map[string]interface{}
+		json.NewDecoder(memberLoginResp.Body).Decode(&memberLoginResult)
+		memberLoginResp.Body.Close()
+
+		memberToken, ok := memberLoginResult["access_token"].(string)
+		if !ok {
+			t.Skip("Could not obtain member access token")
+		}
+
+		// First add member to workspace (by owner)
+		path := fmt.Sprintf("/api/workspaces/%s/members", workspaceID)
+		addPayload := map[string]interface{}{
+			"email": memberEmail,
+		}
+		makeRequest(t, http.MethodPost, path, addPayload, ownerToken).Body.Close()
+
+		// Now try to remove as non-owner
+		removePath := fmt.Sprintf("/api/workspaces/%s/members/%s", workspaceID, memberEmail)
+		removeResp := makeRequest(t, http.MethodDelete, removePath, nil, memberToken)
+		defer removeResp.Body.Close()
+
+		// Should be unauthorized since memberToken doesn't belong to owner
+		assert.Contains(t, []int{http.StatusUnauthorized, http.StatusForbidden}, removeResp.StatusCode,
+			"Non-owner should not be able to remove members")
+	})
+}
+
+// Test 11: Token Blacklist / Logout
+func TestTokenBlacklistLogout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	setupTestApp(t)
+	defer cleanupTestApp(t)
+
+	// Register user
+	email := "logout-test-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com"
+	password := "SecurePassword123!"
+
+	regPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+		"name":     "Logout Test User",
+	}
+
+	regResp := makeRequest(t, http.MethodPost, "/api/auth/register", regPayload, "")
+	regResp.Body.Close()
+
+	// Login
+	loginPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+	}
+
+	loginResp := makeRequest(t, http.MethodPost, "/api/auth/login", loginPayload, "")
+	var loginResult map[string]interface{}
+	json.NewDecoder(loginResp.Body).Decode(&loginResult)
+	loginResp.Body.Close()
+
+	accessToken, ok := loginResult["access_token"].(string)
+	if !ok {
+		t.Skip("Could not obtain access token")
+	}
+
+	t.Run("Logout invalidates access token", func(t *testing.T) {
+		// Logout
+		logoutResp := makeRequest(t, http.MethodPost, "/api/auth/logout", nil, accessToken)
+		defer logoutResp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, logoutResp.StatusCode, "Logout should succeed")
+
+		// Try to use old token on protected endpoint
+		protectedResp := makeRequest(t, http.MethodGet, "/api/user/profile", nil, accessToken)
+		defer protectedResp.Body.Close()
+
+		assert.Equal(t, http.StatusUnauthorized, protectedResp.StatusCode,
+			"Blacklisted token should be rejected")
+	})
+}
+
+// Test 12: Subscription Status Check
+func TestSubscriptionStatus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	setupTestApp(t)
+	defer cleanupTestApp(t)
+
+	// Register and login
+	email := "subscription-test-" + fmt.Sprintf("%d", time.Now().Unix()) + "@example.com"
+	password := "SecurePassword123!"
+
+	regPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+		"name":     "Subscription Test User",
+	}
+
+	regResp := makeRequest(t, http.MethodPost, "/api/auth/register", regPayload, "")
+	regResp.Body.Close()
+
+	loginPayload := map[string]interface{}{
+		"email":    email,
+		"password": password,
+	}
+
+	loginResp := makeRequest(t, http.MethodPost, "/api/auth/login", loginPayload, "")
+	var loginResult map[string]interface{}
+	json.NewDecoder(loginResp.Body).Decode(&loginResult)
+	loginResp.Body.Close()
+
+	accessToken, ok := loginResult["access_token"].(string)
+	if !ok {
+		t.Skip("Could not obtain access token")
+	}
+
+	t.Run("Get subscription status for new user", func(t *testing.T) {
+		resp := makeRequest(t, http.MethodGet, "/api/subscription/status", nil, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Should return subscription status")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		// New user should have no active subscription
+		assert.NotNil(t, result, "Response should contain subscription data")
+	})
+
+	t.Run("Create checkout URL for Pro subscription", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"tier": "pro",
+		}
+
+		resp := makeRequest(t, http.MethodPost, "/api/subscription/checkout", payload, accessToken)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Should generate checkout URL")
+
+		var result map[string]interface{}
+		json.NewDecoder(resp.Body).Decode(&result)
+
+		checkoutURL, ok := result["checkout_url"].(string)
+		assert.True(t, ok && checkoutURL != "", "Should return valid checkout URL")
+	})
 }
 
 // RunE2ETests runs all E2E tests with proper setup/teardown

@@ -1,473 +1,313 @@
-# Monitoring Guide - Prometheus & Grafana
+# Monitoring Guide - Refyne Backend
 
-## Overview
+Production observability stack with Prometheus metrics collection and Grafana visualization.
 
-This guide covers setting up production monitoring for Refyne Backend using Prometheus for metrics collection and Grafana for visualization.
+## Quick Start
 
-**What's Monitored:**
-- HTTP request rates, latency (P95/P99), and error rates
-- Database connection pool health
-- Redis operation performance
-- Authentication metrics (login attempts, failures)
-- Email job processing
-- Paddle subscription API calls
-- Rate limiting exceeded events
-
----
-
-## Part 1: Local Development Setup
-
-### Prerequisites
-
-- Docker & Docker Compose
-- `docker-compose-monitoring.yml` configured
-- Prometheus and Grafana images available
-
-### Quick Start
-
-**Start the monitoring stack:**
+### Start Monitoring Stack
 
 ```bash
-cd d:/Refyne/refyne-backend
+# Start all services (backend + monitoring)
 docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml up -d
+
+# Or start monitoring alongside running backend
+docker-compose -f docker-compose-monitoring.yml up -d
 ```
 
-This starts:
-- Refyne Backend: `http://localhost:8080`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000` (admin/admin)
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
+### Access Dashboards
 
-**Verify all services are running:**
+- **Grafana:** http://localhost:3000
+  - Username: `admin`
+  - Password: `admin`
+  - Dashboard: "Refyne Backend - Production Metrics"
 
-```bash
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml ps
+- **Prometheus:** http://localhost:9090
+  - Query interface at `/graph`
+  - Targets at `/targets`
+
+## Architecture
+
+```
+Backend (8080)
+    ↓
+    /metrics endpoint
+         ↓
+    Prometheus (9090)
+    - Scrapes every 10s
+    - Stores metrics (15 days)
+         ↓
+    Grafana (3000)
+    - Visualizes data
+    - Real-time dashboards
 ```
 
-Expected output:
-```
-NAME          STATUS
-refyne        Up (healthy)
-db            Up (healthy)
-redis         Up (healthy)
-prometheus    Up (healthy)
-grafana       Up (healthy)
-```
+## Metrics Collected
 
-**Generate traffic to collect metrics:**
+### HTTP Requests
+- `refyne_http_requests_total` - Counter: total requests by method/endpoint/status
+- `refyne_http_request_duration_seconds` - Histogram: request duration (P50/P95/P99)
+- `refyne_rate_limit_exceeded_total` - Counter: rate limit violations
 
-```bash
-# E2E tests will generate realistic traffic
-go test ./tests -v
+### Database
+- `refyne_db_connections_active` - Gauge: active connections in pool
+- `refyne_db_connections_used` - Gauge: connections currently in use
 
-# Or manually
-for i in {1..100}; do
-  curl -s http://localhost:8080/api/health > /dev/null
-done
-```
+### Redis
+- `refyne_redis_operations_total` - Counter: Redis operations (get/set/etc)
+- `refyne_redis_errors_total` - Counter: Redis errors by type
 
----
+### Authentication
+- `refyne_auth_login_attempts_total` - Counter: login attempts by method
+- `refyne_auth_login_failures_total` - Counter: failed logins by reason
+- `refyne_auth_tokens_generated_total` - Counter: tokens created (access/refresh)
 
-## Part 2: Prometheus
+### Subscriptions (Paddle)
+- `refyne_paddle_api_calls_total` - Counter: Paddle API calls by operation
+- `refyne_paddle_api_errors_total` - Counter: Paddle errors
+- `refyne_subscriptions_by_tier` - Gauge: active subscriptions by tier/status
 
-### Access Prometheus UI
+### Email
+- `refyne_email_jobs_processed_total` - Counter: email jobs sent
+- `refyne_email_jobs_failures_total` - Counter: failed email jobs
 
-Open: http://localhost:9090
+## Dashboard Panels
 
-### Querying Metrics
+### 1. Request Rate (top-left)
+**Shows:** Requests per second averaged over 5 minutes
+- Green: < 100 req/s
+- Red: > 100 req/s (should scale horizontally)
 
-**Example 1: HTTP Request Rate (requests per second)**
+### 2. Request Latency (top-right)
+**Shows:** P95 and P99 latency in seconds
+- Green: < 100ms
+- Yellow: 100-500ms
+- Red: > 500ms
 
+### 3. Error Rate (middle-left)
+**Shows:** 4xx and 5xx errors
+- Green: < 10 errors/5min
+- Red: > 10 errors
+
+### 4. Database Connections (middle-right)
+**Shows:** Active vs used connections in pool
+- Yellow threshold: 15/20 (75% used)
+- Red threshold: 19/20 (95% used)
+
+### 5. Redis Operations (bottom-left)
+**Shows:** Redis command rate (get/set/del/etc)
+- Indicates cache hit rate health
+
+### 6. Auth Activity (middle-bottom)
+**Shows:** Login attempts vs failures
+- Spike in failures = possible attack or auth issues
+
+### 7. Paddle Activity (bottom-right)
+**Shows:** Payment API calls and errors
+- Indicates subscription processing health
+
+### 8. Rate Limit Violations (far-bottom)
+**Shows:** How many requests blocked by rate limiting
+- Normal: 0 violations
+- Alert if > 100/10min (users hitting limits)
+
+## Key Queries
+
+### Request Rate by Endpoint
 ```promql
 rate(refyne_http_requests_total[5m])
 ```
 
-**Example 2: Request Latency (P95)**
-
+### Error Rate (5xx only)
 ```promql
-histogram_quantile(0.95, rate(refyne_http_request_duration_seconds_bucket[5m]))
+rate(refyne_http_requests_total{status=~"5.."}[5m])
 ```
 
-**Example 3: Error Rate**
-
+### P99 Latency
 ```promql
-rate(refyne_http_requests_total{status=~"5..|4.."}[5m])
+histogram_quantile(0.99, rate(refyne_http_request_duration_seconds_bucket[5m]))
 ```
 
-**Example 4: Database Connections**
-
+### Database Connection Pool Usage
 ```promql
-refyne_db_connections_active
+refyne_db_connections_used / refyne_db_connections_active
 ```
 
-**Example 5: Authentication Failures**
-
+### Failed Login Rate
 ```promql
 rate(refyne_auth_login_failures_total[5m])
 ```
 
-### Metrics Endpoint
-
-Raw metrics available at: http://localhost:8080/metrics
-
-Expected format:
-```
-# HELP refyne_http_requests_total Total number of HTTP requests received
-# TYPE refyne_http_requests_total counter
-refyne_http_requests_total{endpoint="/api/health",method="GET",status="200"} 42
-```
-
-### Configuration
-
-**File:** `monitoring/prometheus.yml`
-
-**Key Settings:**
-- `scrape_interval: 15s` - Collect metrics every 15 seconds
-- `scrape_timeout: 10s` - Timeout individual scrape requests at 10 seconds
-- `targets: ['localhost:8080']` - Scrape backend at :8080/metrics
-
-**Edit configuration:**
-
-```bash
-# Edit prometheus.yml
-nano monitoring/prometheus.yml
-
-# Restart Prometheus to apply changes
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml restart prometheus
-```
-
----
-
-## Part 3: Grafana
-
-### Access Grafana UI
-
-Open: http://localhost:3000
-
-**Default credentials:**
-- Username: `admin`
-- Password: `admin`
-
-### Import Dashboard
-
-1. Click "+" → "Import"
-2. Select `monitoring/grafana-dashboard.json`
-3. Choose Prometheus data source
-4. Click "Import"
-
-**Dashboard Panels:**
-
-| Panel | Metric | Description |
-|---|---|---|
-| Request Rate | `rate(refyne_http_requests_total[5m])` | HTTP requests/second by endpoint |
-| Latency (P95/P99) | `histogram_quantile(0.95, ...)` | Request latency percentiles |
-| Error Rate | `rate(refyne_http_requests_total{status=~"[45].."}[5m])` | 4xx and 5xx errors per second |
-| DB Connections | `refyne_db_connections_active/_used` | Active and in-use connections |
-| Redis Operations | `rate(refyne_redis_operations_total[5m])` | Redis ops/sec by operation |
-| Email Jobs | `rate(refyne_email_jobs_processed_total[5m])` | Email delivery rate and failures |
-| Paddle API | `rate(refyne_paddle_api_calls_total[5m])` | Paddle API call rate |
-| Subscriptions | `refyne_subscriptions_by_tier` | Active subscriptions by tier |
-
-### Creating Custom Dashboards
-
-**Create new dashboard:**
-
-1. Click "+" → "Dashboard"
-2. Click "Add panel"
-3. Enter Prometheus query (e.g., `refyne_http_requests_total`)
-4. Configure visualization (Graph, Gauge, Stat, etc.)
-5. Save dashboard
-
-**Example Custom Panel:**
-
+### Subscription Status
 ```promql
-# Top error endpoints (last 5 minutes)
-rate(refyne_http_requests_total{status=~"5.."}[5m])
+refyne_subscriptions_by_tier{status="active"}
 ```
 
-### Setting Alerts (Optional)
+## Alerting Rules (Future)
 
-1. Open dashboard panel
-2. Click "Alert" tab
-3. Configure alert condition (e.g., "if P95 latency > 100ms for 5m")
-4. Configure notification channel (email, Slack, etc.)
-
----
-
-## Part 4: Metrics Reference
-
-### HTTP Metrics
-
-```promql
-# Total requests
-refyne_http_requests_total{method, endpoint, status}
-
-# Request duration (latency)
-refyne_http_request_duration_seconds{method, endpoint}
-  Buckets: 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10 seconds
-```
-
-**Usage Examples:**
-
-```promql
-# Requests/sec by status
-rate(refyne_http_requests_total[1m])
-
-# P95 latency
-histogram_quantile(0.95, rate(refyne_http_request_duration_seconds_bucket[5m]))
-
-# 5xx error rate
-rate(refyne_http_requests_total{status=~"5.."}[5m])
-```
-
-### Database Metrics
-
-```promql
-# Active connections in pool
-refyne_db_connections_active{pool}
-
-# Connections currently in use
-refyne_db_connections_used{pool}
-```
-
-### Redis Metrics
-
-```promql
-# Operations per second
-refyne_redis_operations_total{operation, status}
-
-# Errors
-refyne_redis_errors_total{operation, error_type}
-```
-
-### Authentication Metrics
-
-```promql
-# Login attempts by method (otp, password, refresh)
-refyne_auth_login_attempts_total{method}
-
-# Failed logins by reason
-refyne_auth_login_failures_total{reason}
-
-# Tokens generated
-refyne_auth_tokens_generated_total{token_type}
-```
-
-### Subscription Metrics
-
-```promql
-# Active subscriptions by tier and status
-refyne_subscriptions_by_tier{tier, status}
-
-# Paddle API calls
-refyne_paddle_api_calls_total{operation, status}
-
-# Paddle API errors
-refyne_paddle_api_errors_total{operation, error_code}
-```
-
-### Email Metrics
-
-```promql
-# Processed email jobs
-refyne_email_jobs_processed_total{email_type, status}
-
-# Failed email jobs
-refyne_email_jobs_failures_total{email_type, reason}
-```
-
-### Rate Limiting Metrics
-
-```promql
-# Requests rejected by rate limiter
-refyne_rate_limit_exceeded_total{endpoint, client_ip}
-```
-
----
-
-## Part 5: Production Deployment
-
-### Deploy to Railway
-
-Prometheus and Grafana are optional in production (Railway provides basic monitoring).
-
-**Option 1: Railway Native Monitoring** (Recommended)
-- Railway dashboard shows logs, CPU, memory
-- Built-in, no setup required
-- Limited to basic metrics
-
-**Option 2: Self-Hosted Prometheus + Grafana**
-- Deploy Prometheus and Grafana as separate Railway services
-- Requires more resources
-- Full control and customization
-
-### Enable Monitoring in Production
-
-1. Ensure `prometheus` dependency is included:
-   ```bash
-   go get github.com/prometheus/client_golang
-   ```
-
-2. Metrics endpoint is always exposed at `/metrics`
-   - Authentication: No auth required for `/metrics`
-   - Consider restricting via firewall/proxy in production
-
-3. Initialize monitoring on app start:
-   ```go
-   monitoring.Initialize()
-   ```
-
-### Sampling Issues in Production
-
-**Problem:** Too many metrics causes storage bloat
-
-**Solution:** Use metric sampling/scraping intervals
+Create `monitoring/alerting_rules.yml`:
 
 ```yaml
-# In prometheus.yml
-global:
-  scrape_interval: 30s    # Increase from 15s to 30s
-  scrape_timeout: 15s
+groups:
+  - name: refyne_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(refyne_http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "High error rate detected"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(refyne_http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        annotations:
+          summary: "P95 latency > 1s"
+
+      - alert: DatabasePoolExhausted
+        expr: refyne_db_connections_used / refyne_db_connections_active > 0.9
+        for: 2m
+        annotations:
+          summary: "Database connection pool 90% full"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        annotations:
+          summary: "Redis service down"
+
+      - alert: PaddleAPIErrors
+        expr: rate(refyne_paddle_api_errors_total[5m]) > 0.01
+        for: 5m
+        annotations:
+          summary: "Paddle API errors exceeding threshold"
 ```
 
-### High-Cardinality Metrics
-
-**At-risk metrics:**
-
-```promql
-# This can explode with unique client IPs
-refyne_rate_limit_exceeded_total{endpoint, client_ip}
-
-# This varies by endpoint
-refyne_http_requests_total{method, endpoint, status}
-```
-
-**Solution:** Aggregate in Prometheus
-
-```yaml
-# Add relabeling to limit cardinality
-metric_relabelings:
-  - source_labels: [client_ip]
-    regex: '.*'
-    target_label: client_ip
-    replacement: 'masked'
-```
-
----
-
-## Part 6: Troubleshooting
+## Troubleshooting
 
 ### Prometheus not scraping metrics
-
-**Check:**
-1. Refyne app is running: `curl http://localhost:8080/api/health`
-2. Metrics endpoint responds: `curl http://localhost:8080/metrics`
-3. Prometheus can reach app: Check Prometheus UI → Status → Targets
-
-**Fix:**
-
 ```bash
-# Restart Prometheus
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml restart prometheus
+# Check target status
+curl http://localhost:9090/api/v1/targets
 
-# View Prometheus logs
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml logs prometheus
+# Check prometheus logs
+docker logs refyne-prometheus
+
+# Verify backend metrics endpoint
+curl http://localhost:8080/metrics
 ```
 
 ### Grafana not showing data
-
-**Check:**
-1. Prometheus has data: Visit http://localhost:9090 and query a metric
-2. Datasource is configured: Grafana → Configuration → Data Sources → Prometheus
-3. Dashboard queries are valid: Click panel → Edit → Check PromQL query
-
-**Fix:**
-
 ```bash
-# Restart Grafana
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml restart grafana
+# Check if Prometheus datasource is connected
+# Grafana → Configuration → Data Sources → Prometheus
+# Test connection button
 
-# View Grafana logs
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml logs grafana
+# Verify queries in Prometheus first
+# http://localhost:9090/graph
 ```
 
-### High memory usage
+### Metrics not updating
+- Increase scrape frequency: Edit `monitoring/prometheus.yml`
+- Default: 10 seconds → Change to 5 seconds for faster updates
+- Restart Prometheus: `docker restart refyne-prometheus`
 
-**Problem:** Too many metrics or long retention
+### Dashboard showing "No data"
+- Backend not running: `make run`
+- Metrics endpoint not responding: `curl http://localhost:8080/metrics`
+- Wait 30+ seconds for first scrape (initial data collection)
 
-**Solution:**
+## Production Setup
+
+### Remote Prometheus Storage
+
+For long-term storage, configure remote storage:
+
 ```yaml
-# In prometheus.yml
-global:
-  scrape_interval: 30s  # Increase to 30-60s
+# Add to prometheus.yml
+remote_write:
+  - url: "https://prometheus.example.com/write"
+    basic_auth:
+      username: 'user'
+      password: 'pass'
+```
 
-# Retention
+### High Availability Setup
+
+Run multiple Prometheus instances behind a load balancer:
+- Each scrapes independently
+- Redundancy if one fails
+- Use AlertManager for deduplication
+
+### Retention Policy
+
+Default: 15 days of metrics
+
+Adjust in `docker-compose-monitoring.yml`:
+```yaml
 command:
-  - '--storage.tsdb.retention.time=7d'  # Reduce from 30d
+  - '--storage.tsdb.retention.time=30d'  # Keep 30 days
 ```
 
-### Metrics endpoint slow
+## Performance Impact
 
-**Problem:** Generating metrics takes too long
+- Metrics collection: < 5ms per request
+- Memory overhead: ~100MB for Prometheus
+- Disk usage: ~5GB per month (at 100 req/s)
 
-**Solution:** Reduce instrumentation or use sampling
+## Security
 
-```go
-// In metrics recording
-if rand.Intn(100) < 10 {  // Record 10% of events
-    metrics.RecordEvent(...)
-}
+### Secure Prometheus
+
+Add basic auth:
+```yaml
+# prometheus.yml
+global:
+  external_labels:
+    environment: 'production'
+
+http_sd_configs:
+  - basic_auth:
+      username: 'prometheus'
+      password: 'secure_password'
 ```
 
----
+### Secure Grafana
 
-## Part 7: Maintenance
+- Change default admin password immediately
+- Configure LDAP/OAuth if available
+- Restrict dashboard access by role
+- Enable audit logging
 
-### Backup Grafana Dashboards
+## Maintenance
 
-**Export dashboard:**
-1. Click dashboard → "Dashboard settings" (gear icon)
-2. Click "More" → "Export"
-3. Save JSON to version control
+### Daily
+- Check error rate dashboard
+- Verify latency < 500ms
+- Check database connection usage
 
-### Clean Prometheus Storage
+### Weekly
+- Review failed login attempts
+- Check Paddle API error rate
+- Verify Redis connection health
 
-```bash
-# Delete old data (keep last 7 days)
-docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml exec prometheus \
-  promtool query instant 'time() - 7*24*60*60' 300
-```
+### Monthly
+- Analyze traffic patterns
+- Plan capacity increases
+- Review alerting rules effectiveness
 
-### Monitor Monitoring (Meta!)
+## Capacity Planning
 
-```promql
-# Prometheus memory usage
-process_resident_memory_bytes{job="prometheus"}
+Based on current metrics:
 
-# Grafana memory usage
-process_resident_memory_bytes{job="grafana"}
+- **At 100 req/s:** 1 PostgreSQL replica needed
+- **At 1000 req/s:** Add Prometheus remote storage + HAProxy
+- **At 10,000 req/s:** Multiple Prometheus instances, distributed database
 
-# Prometheus scrape latency
-scrape_duration_seconds
-```
-
----
+Current setup comfortable for: **500-1000 req/s**
 
 ## Next Steps
 
-1. **Set up alerts** for critical metrics (high error rate, latency, connection pool exhaustion)
-2. **Enable persistent storage** for historical analysis
-3. **Integrate with incident management** (PagerDuty, Opsgenie)
-4. **Configure log aggregation** (ELK, Loki) to correlate with metrics
-5. **Track SLOs** using metrics (99.9% uptime, <100ms P95 latency)
-
----
-
-## Summary
-
-| Tool | Purpose | URL | User |
-|---|---|---|---|
-| Prometheus | Metrics collection & storage | http://localhost:9090 | N/A |
-| Grafana | Visualization & dashboards | http://localhost:3000 | admin / admin |
-| `/metrics` | Raw Prometheus format | http://localhost:8080/metrics | N/A |
+1. Monitor for 24 hours to establish baseline
+2. Set alert thresholds based on baseline
+3. Create runbooks for common alerts
+4. Test failover scenarios
+5. Document on-call procedures

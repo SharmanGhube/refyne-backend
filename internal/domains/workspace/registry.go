@@ -1,11 +1,15 @@
 package workspace
 
+import (
+	handlerPkg "github.com/refynehq/refyne-backend/internal/domains/workspace/handler"
+)
+
 type WorkspaceRegistry struct {
-	// Add necessary fields for the Workspace domain
+	handlerPkg.WorkspaceHandler
 }
 
-func NewWorkspaceRegistry() *WorkspaceRegistry {
+func NewWorkspaceRegistry(handler handlerPkg.WorkspaceHandler) *WorkspaceRegistry {
 	return &WorkspaceRegistry{
-		// Initialize necessary fields
+		WorkspaceHandler: handler,
 	}
 }

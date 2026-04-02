@@ -12,6 +12,7 @@ import (
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
+	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace/routes"
 	"github.com/refynehq/refyne-backend/internal/monitoring"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
@@ -95,6 +96,9 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 
 		// User routes (profile, settings, onboarding)
 		user.SetupUserRoutes(apiRoutes, registry)
+
+		// Workspace routes (multi-workspace support)
+		workspace.SetupWorkspaceRoutes(apiRoutes, registry)
 
 		// Protected test route
 		protected := apiRoutes.Group("/protected")

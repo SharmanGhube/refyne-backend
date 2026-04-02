@@ -1,0 +1,38 @@
+# Prometheus Configuration for Refyne Backend
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'refyne-backend-monitor'
+
+# Alerting configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Rule files (optional)
+rule_files: []
+
+# Scrape configurations
+scrape_configs:
+  - job_name: 'refyne-backend'
+    metrics_path: '/metrics'
+
+    # Scrape every 15 seconds
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+    # Static targets
+    static_configs:
+      - targets: ['localhost:8080']
+        labels:
+          service: 'refyne-backend'
+          environment: 'local'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'

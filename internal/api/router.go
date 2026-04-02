@@ -2,16 +2,44 @@ package api
 
 import (
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
+	"github.com/refynehq/refyne-backend/internal/monitoring"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
+
+// prometheusMiddleware records HTTP request metrics
+func prometheusMiddleware() gin.HandlerFunc {
+	metrics := monitoring.GetMetrics()
+	return func(c *gin.Context) {
+		start := time.Now()
+
+		// Process request
+		c.Next()
+
+		// Skip metrics for health and metrics endpoints
+		if c.Request.URL.Path == "/metrics" || c.Request.URL.Path == "/api/health" {
+			return
+		}
+
+		// Record metrics
+		duration := time.Since(start).Seconds()
+		metrics.RecordHTTPRequest(
+			c.Request.Method,
+			c.Request.URL.Path,
+			c.Writer.Status(),
+			duration,
+		)
+	}
+}
 
 func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClient *redis.Client) *gin.Engine {
 	env := os.Getenv("APP_ENV")
@@ -33,10 +61,14 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 	router.Use(gin.LoggerWithWriter(gin.DefaultWriter, "/health", "/metrics"))
 	router.Use(gin.Recovery())
 	router.Use(middlewares.RequestIDMiddleware())
+	router.Use(prometheusMiddleware())
 	router.Use(middlewares.CORSMiddleware())
 	router.Use(middlewares.SecurityHeadersMiddleware())
 	router.Use(middlewares.InputValidationMiddleware())
 	router.Use(middlewares.ValidateRequestSize(10 * 1024 * 1024)) // 10MB max request size
+
+	// Expose Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapF(promhttp.Handler().ServeHTTP))
 
 	// Serve static files (checkout pages)
 	router.Static("/static", "./static")

@@ -118,6 +118,7 @@ func NewConfig() (*Config, error) {
 
 	if config.Environment == "production" {
 		logger.Info("Running in production mode")
+		validateProductionConfig(logger, config)
 	} else {
 		logger.Info("Running in development mode")
 	}
@@ -139,4 +140,68 @@ func getRedisPort() string {
 		return "6379"
 	}
 	return port
+}
+
+// validateProductionConfig checks for critical production environment variables
+func validateProductionConfig(logger *zap.Logger, cfg *Config) {
+	missingVars := []string{}
+
+	// Check database configuration
+	if cfg.Database.host == "" {
+		missingVars = append(missingVars, "DB_HOST")
+	}
+	if cfg.Database.user == "" {
+		missingVars = append(missingVars, "DB_USER")
+	}
+	if cfg.Database.password == "" {
+		missingVars = append(missingVars, "DB_PASSWORD")
+	}
+	if cfg.Database.database == "" {
+		missingVars = append(missingVars, "DB_NAME")
+	}
+
+	// Check Redis configuration
+	if cfg.Redis.Host == "localhost" {
+		logger.Warn("Redis host is set to localhost - this will fail in production containers. Use Railway service reference: ${{Redis.REDIS_HOST}}")
+	}
+
+	// Check SMTP configuration
+	if cfg.SMTP.Host == "" {
+		missingVars = append(missingVars, "SMTP_HOST")
+	}
+	if cfg.SMTP.Username == "" {
+		missingVars = append(missingVars, "SMTP_USERNAME")
+	}
+	if cfg.SMTP.Password == "" {
+		missingVars = append(missingVars, "SMTP_PASSWORD")
+	}
+
+	// Check JWT configuration
+	if os.Getenv("JWT_SECRET") == "" {
+		missingVars = append(missingVars, "JWT_SECRET")
+	}
+
+	if len(missingVars) > 0 {
+		logger.Warn("Production: Missing critical environment variables",
+			zap.Strings("missing_vars", missingVars),
+			zap.String("hint", "Use railway.env.template to configure or check Railway service linking"))
+	}
+
+	// Log connection info for debugging
+	logger.Info("Database connection info",
+		zap.String("host", maskSensitive(cfg.Database.host)),
+		zap.String("user", cfg.Database.user),
+		zap.String("database", cfg.Database.database))
+
+	logger.Info("Redis connection info",
+		zap.String("host", maskSensitive(cfg.Redis.Host)),
+		zap.String("port", cfg.Redis.Port))
+}
+
+// maskSensitive masks password in connection details for logging
+func maskSensitive(value string) string {
+	if len(value) == 0 {
+		return "(empty)"
+	}
+	return value
 }

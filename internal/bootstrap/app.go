@@ -205,3 +205,8 @@ func (a *App) runMigrations() error {
 
 	return nil
 }
+
+// GetRouter returns the Gin router instance (useful for testing)
+func (a *App) GetRouter() *gin.Engine {
+	return a.router
+}

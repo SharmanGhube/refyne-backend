@@ -58,14 +58,14 @@ func NewPaddleConfig(logger *zap.Logger) (*PaddleConfig, error) {
 		Logger: logger,
 
 		// Sandbox credentials
-		SandboxAPIKey:       os.Getenv("PADDLE_SANDBOX_API_KEY"),
+		SandboxAPIKey:        os.Getenv("PADDLE_SANDBOX_API_KEY"),
 		SandboxWebhookSecret: os.Getenv("PADDLE_SANDBOX_WEBHOOK_SECRET"),
-		SandboxProductIDPro: os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_PRO"),
+		SandboxProductIDPro:  os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_PRO"),
 
 		// Production credentials
-		LiveAPIKey:       os.Getenv("PADDLE_LIVE_API_KEY"),
+		LiveAPIKey:        os.Getenv("PADDLE_LIVE_API_KEY"),
 		LiveWebhookSecret: os.Getenv("PADDLE_LIVE_WEBHOOK_SECRET"),
-		LiveProductIDPro: os.Getenv("PADDLE_LIVE_PRODUCT_ID_PRO"),
+		LiveProductIDPro:  os.Getenv("PADDLE_LIVE_PRODUCT_ID_PRO"),
 
 		// Frontend URLs
 		CheckoutSuccessURL: getEnvOrDefault("FRONTEND_CHECKOUT_SUCCESS_URL", "http://localhost:3000/subscription-success"),

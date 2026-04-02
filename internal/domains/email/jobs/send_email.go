@@ -181,3 +181,15 @@ func QueueWelcomeEmail(ctx context.Context, client *river.Client[any], to, usern
 
 	return QueueEmailJob(ctx, client, to, "Welcome to Refyne!", "welcome.html", data)
 }
+
+// QueueWorkspaceMemberInvitation queues a workspace member invitation email job
+func QueueWorkspaceMemberInvitation(ctx context.Context, client *river.Client[any], to, workspaceName, invitedBy, invitationLink string) error {
+	data := map[string]interface{}{
+		"to":               to,
+		"workspace_name":   workspaceName,
+		"invited_by":       invitedBy,
+		"invitation_link":  invitationLink,
+	}
+
+	return QueueEmailJob(ctx, client, to, "You're invited to "+workspaceName+" on Refyne", "workspace_invitation.html", data)
+}

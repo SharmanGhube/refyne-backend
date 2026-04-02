@@ -30,7 +30,7 @@ func (r *WorkspaceRepositoryImpl) CreateWorkspace(c *gin.Context, workspace *mod
 	`
 
 	_, err := r.db.ExecContext(c, query,
-		workspace.ID, workspace.UserID, workspace.Name, workspace.Description, 
+		workspace.ID, workspace.UserID, workspace.Name, workspace.Description,
 		workspace.IsActive, workspace.CreatedAt, workspace.UpdatedAt,
 	)
 

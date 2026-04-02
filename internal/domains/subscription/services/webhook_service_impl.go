@@ -90,9 +90,9 @@ func (w *WebhookServiceImpl) ProcessSubscriptionCreated(ctx *gin.Context, data m
 		}
 	}
 
-	// Extract product to determine tier
+	// Extract product to determine tier (always "pro" now)
 	items, _ := data["items"].([]interface{})
-	tier := "starter" // Default
+	tier := "pro"
 	if len(items) > 0 {
 		item, _ := items[0].(map[string]interface{})
 		productID := getStringFromMap(item, "product_id")
@@ -140,9 +140,9 @@ func (w *WebhookServiceImpl) ProcessSubscriptionUpdated(ctx *gin.Context, data m
 		return appErr
 	}
 
-	// Extract new tier if changed
+	// Extract new tier if changed (always "pro" now)
 	items, _ := data["items"].([]interface{})
-	tier := "starter"
+	tier := "pro"
 	if len(items) > 0 {
 		item, _ := items[0].(map[string]interface{})
 		productID := getStringFromMap(item, "product_id")
@@ -322,27 +322,15 @@ func getStringFromMap(m map[string]interface{}, key string) string {
 }
 
 func (w *WebhookServiceImpl) mapProductIDToTier(productID string) string {
-	// This mapping would ideally come from config
-	// For now, implement basic logic
-	// In production, you'd query your product mappings
-
-	// You can extend this with proper product ID mapping
-	tierMap := map[string]string{
-		// These would be your actual Paddle product IDs
-		"pro_01kb658vg4yn2kfa05bgpea0mn": "starter",
-		"pro_01kb65ddszngn8rw1xxgt4d9dz": "professional",
-		"pro_01kb65f34bzextbjmk7kcfh6z2": "business",
-		"pro_01kb65gc03r2z9kjrj7k4n5vp4": "enterprise",
+	// All subscriptions are "pro" tier now
+	// Previously different product IDs mapped to different tiers,
+	// but now we only support the Pro subscription tier
+	if productID != "" {
+		w.logger.Debug("Mapping product to pro tier",
+			zap.String("product_id", productID),
+		)
 	}
-
-	if tier, ok := tierMap[productID]; ok {
-		return tier
-	}
-
-	w.logger.Warn("Unknown product ID, defaulting to starter",
-		zap.String("product_id", productID),
-	)
-	return "starter"
+	return "pro"
 }
 
 func (w *WebhookServiceImpl) mapPaddleStatus(paddleStatus string) string {

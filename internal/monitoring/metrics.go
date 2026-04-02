@@ -25,8 +25,8 @@ type MetricsCollector struct {
 	AuthTokensGenerated prometheus.CounterVec
 
 	// Subscription Metrics
-	PaddleAPICalls prometheus.CounterVec
-	PaddleAPIErrors prometheus.CounterVec
+	PaddleAPICalls      prometheus.CounterVec
+	PaddleAPIErrors     prometheus.CounterVec
 	SubscriptionsByTier prometheus.GaugeVec
 
 	// Email Metrics

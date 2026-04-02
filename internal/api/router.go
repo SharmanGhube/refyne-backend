@@ -9,10 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
-	"github.com/refynehq/refyne-backend/internal/monitoring"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
+	"github.com/refynehq/refyne-backend/internal/monitoring"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 )
 

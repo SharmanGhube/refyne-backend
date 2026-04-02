@@ -55,7 +55,7 @@ func (u *User) IsVerifiedUser() bool {
 
 // HasActiveSubscription checks if user has an active paid subscription
 func (u *User) HasActiveSubscription() bool {
-	return u.SubscriptionStatus == "active" || u.SubscriptionStatus == "trialing"
+	return (u.SubscriptionStatus == "active" || u.SubscriptionStatus == "trialing") && u.SubscriptionTier == "pro"
 }
 
 // IsSubscriptionExpired checks if subscription has expired
@@ -72,18 +72,10 @@ func (u *User) GetSubscriptionTier() string {
 }
 
 // CanAccessFeature checks if user's tier allows access to a feature
+// Currently only Pro tier is supported
 func (u *User) CanAccessFeature(requiredTier string) bool {
-	tierHierarchy := map[string]int{
-		"starter":      1,
-		"professional": 2,
-		"business":     3,
-		"enterprise":   4,
-	}
-
-	userLevel := tierHierarchy[u.SubscriptionTier]
-	requiredLevel := tierHierarchy[requiredTier]
-
-	return userLevel >= requiredLevel
+	// All features require Pro subscription
+	return u.HasActiveSubscription()
 }
 
 // Validations

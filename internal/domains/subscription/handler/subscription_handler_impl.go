@@ -36,7 +36,7 @@ func NewSubscriptionHandler(
 	}
 }
 
-// CreateCheckout generates a Paddle checkout URL
+// CreateCheckout generates a Paddle checkout URL for Pro subscription
 func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 	// Extract user from JWT
 	userID, exists := middlewares.GetUserID(c)
@@ -47,26 +47,32 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 
 	userEmail, _ := middlewares.GetUserEmail(c)
 
-	// Parse request
+	// Parse request (tier parameter is optional/ignored for backwards compatibility)
 	var req models.CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Warn("Invalid checkout request",
-			zap.String("user_id", userID),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
-			"details": err.Error(),
-		})
-		return
+		// Allow empty body
+		if err != io.EOF && err.Error() != "EOF" {
+			h.logger.Warn("Invalid checkout request",
+				zap.String("user_id", userID),
+				zap.Error(err),
+			)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Invalid request format",
+				"details": err.Error(),
+			})
+			return
+		}
 	}
 
+	// Always use "pro" tier
+	tier := "pro"
+
 	// Generate checkout URL
-	checkoutURL, appErr := h.paddleService.GenerateCheckoutURL(c, userID, userEmail, req.Tier)
+	checkoutURL, appErr := h.paddleService.GenerateCheckoutURL(c, userID, userEmail, tier)
 	if appErr != nil {
 		h.logger.Error("Failed to generate checkout URL",
 			zap.String("user_id", userID),
-			zap.String("tier", req.Tier),
+			zap.String("tier", tier),
 		)
 		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
 		return
@@ -79,7 +85,7 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 
 	h.logger.Info("Checkout URL generated",
 		zap.String("user_id", userID),
-		zap.String("tier", req.Tier),
+		zap.String("tier", tier),
 	)
 
 	c.JSON(http.StatusOK, response)
@@ -110,17 +116,11 @@ func (h *SubscriptionHandlerImpl) GetSubscriptionStatus(c *gin.Context) {
 		portalURL = url
 	}
 
-	// Determine if user can upgrade/downgrade
-	canUpgrade := tier != "enterprise" && status == "active"
-	canDowngrade := tier != "starter" && status == "active"
-
 	response := models.SubscriptionStatusResponse{
 		Tier:                tier,
 		Status:              status,
 		ExpiresAt:           expiresAt,
 		PaddleCustomerID:    customerID,
-		CanUpgrade:          canUpgrade,
-		CanDowngrade:        canDowngrade,
 		ManagementPortalURL: portalURL,
 	}
 

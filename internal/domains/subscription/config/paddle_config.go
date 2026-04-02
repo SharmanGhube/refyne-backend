@@ -25,12 +25,12 @@ type PaddleConfig struct {
 	// Sandbox credentials
 	SandboxAPIKey        string
 	SandboxWebhookSecret string
-	SandboxProductIDs    map[string]string // tier -> product_id
+	SandboxProductIDPro  string // Pro subscription product ID
 
 	// Production credentials
 	LiveAPIKey        string
 	LiveWebhookSecret string
-	LiveProductIDs    map[string]string // tier -> product_id
+	LiveProductIDPro  string // Pro subscription product ID
 
 	// Frontend URLs
 	CheckoutSuccessURL string
@@ -58,24 +58,14 @@ func NewPaddleConfig(logger *zap.Logger) (*PaddleConfig, error) {
 		Logger: logger,
 
 		// Sandbox credentials
-		SandboxAPIKey:        os.Getenv("PADDLE_SANDBOX_API_KEY"),
+		SandboxAPIKey:       os.Getenv("PADDLE_SANDBOX_API_KEY"),
 		SandboxWebhookSecret: os.Getenv("PADDLE_SANDBOX_WEBHOOK_SECRET"),
-		SandboxProductIDs: map[string]string{
-			"starter":      os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_STARTER"),
-			"professional": os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_PROFESSIONAL"),
-			"business":     os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_BUSINESS"),
-			"enterprise":   os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_ENTERPRISE"),
-		},
+		SandboxProductIDPro: os.Getenv("PADDLE_SANDBOX_PRODUCT_ID_PRO"),
 
 		// Production credentials
-		LiveAPIKey:        os.Getenv("PADDLE_LIVE_API_KEY"),
+		LiveAPIKey:       os.Getenv("PADDLE_LIVE_API_KEY"),
 		LiveWebhookSecret: os.Getenv("PADDLE_LIVE_WEBHOOK_SECRET"),
-		LiveProductIDs: map[string]string{
-			"starter":      os.Getenv("PADDLE_LIVE_PRODUCT_ID_STARTER"),
-			"professional": os.Getenv("PADDLE_LIVE_PRODUCT_ID_PROFESSIONAL"),
-			"business":     os.Getenv("PADDLE_LIVE_PRODUCT_ID_BUSINESS"),
-			"enterprise":   os.Getenv("PADDLE_LIVE_PRODUCT_ID_ENTERPRISE"),
-		},
+		LiveProductIDPro: os.Getenv("PADDLE_LIVE_PRODUCT_ID_PRO"),
 
 		// Frontend URLs
 		CheckoutSuccessURL: getEnvOrDefault("FRONTEND_CHECKOUT_SUCCESS_URL", "http://localhost:3000/subscription-success"),
@@ -109,11 +99,8 @@ func (c *PaddleConfig) validate() error {
 		if c.SandboxWebhookSecret == "" {
 			return fmt.Errorf("PADDLE_SANDBOX_WEBHOOK_SECRET is required for sandbox mode")
 		}
-		// Validate product IDs
-		for tier, productID := range c.SandboxProductIDs {
-			if productID == "" {
-				return fmt.Errorf("PADDLE_SANDBOX_PRODUCT_ID_%s is required for sandbox mode", strings.ToUpper(tier))
-			}
+		if c.SandboxProductIDPro == "" {
+			return fmt.Errorf("PADDLE_SANDBOX_PRODUCT_ID_PRO is required for sandbox mode")
 		}
 
 	case PaymentModeProduction:
@@ -123,11 +110,8 @@ func (c *PaddleConfig) validate() error {
 		if c.LiveWebhookSecret == "" {
 			return fmt.Errorf("PADDLE_LIVE_WEBHOOK_SECRET is required for production mode")
 		}
-		// Validate product IDs
-		for tier, productID := range c.LiveProductIDs {
-			if productID == "" {
-				return fmt.Errorf("PADDLE_LIVE_PRODUCT_ID_%s is required for production mode", strings.ToUpper(tier))
-			}
+		if c.LiveProductIDPro == "" {
+			return fmt.Errorf("PADDLE_LIVE_PRODUCT_ID_PRO is required for production mode")
 		}
 
 	case PaymentModeMock:
@@ -162,23 +146,27 @@ func (c *PaddleConfig) GetWebhookSecret() string {
 	}
 }
 
-// GetProductID returns the Paddle product ID for a given tier
+// GetProductID returns the Paddle product ID for the Pro tier
 func (c *PaddleConfig) GetProductID(tier string) (string, error) {
+	// Only Pro tier is supported
 	tier = strings.ToLower(tier)
+	if tier != "pro" {
+		return "", fmt.Errorf("only 'pro' tier is supported, got: %s", tier)
+	}
 
 	var productID string
 	switch c.Mode {
 	case PaymentModeSandbox:
-		productID = c.SandboxProductIDs[tier]
+		productID = c.SandboxProductIDPro
 	case PaymentModeProduction:
-		productID = c.LiveProductIDs[tier]
+		productID = c.LiveProductIDPro
 	case PaymentModeMock:
 		// Return mock product ID
-		return fmt.Sprintf("mock_product_%s", tier), nil
+		return "mock_product_pro", nil
 	}
 
 	if productID == "" {
-		return "", fmt.Errorf("no product ID configured for tier: %s", tier)
+		return "", fmt.Errorf("Pro product ID not configured for mode: %s", c.Mode)
 	}
 
 	return productID, nil

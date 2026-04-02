@@ -11,14 +11,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/wire"
 	"github.com/refynehq/refyne-backend/internal/bootstrap"
 	"github.com/refynehq/refyne-backend/internal/config"
+	"github.com/refynehq/refyne-backend/internal/database"
+	"github.com/refynehq/refyne-backend/internal/api"
+	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// E2E test suite for Refyne Backend
-// These tests validate end-to-end workflows across multiple services
+// baseURL for test requests - point to running backend
+const baseURL = "http://localhost:8080"
 
 var testApp *bootstrap.App
 
@@ -29,19 +33,22 @@ func init() {
 }
 
 // setupTestApp initializes the app for testing
+// Note: Requires a running backend instance at localhost:8080
 func setupTestApp(t *testing.T) {
-	var err error
-	testApp, err = bootstrap.NewApp()
-	require.NoError(t, err, "Failed to initialize test app")
-	require.NotNil(t, testApp, "Test app is nil")
+	// Verify backend is accessible
+	resp, err := http.Get(baseURL + "/api/health")
+	if err != nil {
+		t.Fatalf("Backend not running at %s. Start with: make run", baseURL)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Backend health check failed: %d", resp.StatusCode)
+	}
 }
 
-// cleanupTestApp closes database and Redis connections
+// cleanupTestApp cleanup (stub for consistency)
 func cleanupTestApp(t *testing.T) {
-	if testApp != nil {
-		testApp.DBPool.Close()
-		// Redis cleanup handled by app
-	}
+	// No cleanup needed for HTTP-based tests
 }
 
 // Helper function to make HTTP requests to the app
@@ -55,15 +62,19 @@ func makeRequest(t *testing.T, method, path string, body interface{}, authToken 
 		bodyReader = bytes.NewReader([]byte{})
 	}
 
-	req := httptest.NewRequest(method, path, bodyReader)
+	url := baseURL + path
+	req, err := http.NewRequest(method, url, bodyReader)
+	require.NoError(t, err)
+
 	req.Header.Set("Content-Type", "application/json")
 	if authToken != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	}
 
-	w := httptest.NewRecorder()
-	testApp.GetRouter().ServeHTTP(w, req)
-	return w.Result()
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	return resp
 }
 
 // Test 1: User Registration and Email Verification Flow

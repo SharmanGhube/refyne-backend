@@ -4,7 +4,7 @@ import "time"
 
 // CheckoutRequest represents a request to create a Paddle checkout session
 type CheckoutRequest struct {
-	Tier string `json:"tier" binding:"required,oneof=starter professional business enterprise"`
+	Tier string `json:"tier" binding:"omitempty"` // Always "pro", kept for API compatibility
 }
 
 // CheckoutResponse contains the checkout URL for the user to complete payment
@@ -15,13 +15,11 @@ type CheckoutResponse struct {
 
 // SubscriptionStatusResponse returns the user's current subscription details
 type SubscriptionStatusResponse struct {
-	Tier                string     `json:"tier"`
-	Status              string     `json:"status"`
-	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
-	PaddleCustomerID    *string    `json:"paddle_customer_id,omitempty"`
-	CanUpgrade          bool       `json:"can_upgrade"`
-	CanDowngrade        bool       `json:"can_downgrade"`
-	ManagementPortalURL string     `json:"management_portal_url,omitempty"`
+	Tier             string     `json:"tier"`        // "pro" or null
+	Status           string     `json:"status"`      // active, cancelled, past_due, inactive
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	PaddleCustomerID *string    `json:"paddle_customer_id,omitempty"`
+	ManagementPortalURL string  `json:"management_portal_url,omitempty"`
 }
 
 // CustomerPortalResponse contains the URL to Paddle's customer portal

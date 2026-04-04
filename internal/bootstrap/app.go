@@ -15,21 +15,23 @@ import (
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database/migrations"
 	authUtils "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
+	"github.com/refynehq/refyne-backend/internal/monitoring"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	config       *config.Config
-	DB           *sqlx.DB
-	DBPool       *pgxpool.Pool
-	router       *gin.Engine
-	server       *http.Server
-	logger       *zap.Logger
-	riverService *riverqueue.RiverService
-	redisClient  *redis.Client
-	Version      string
+	config             *config.Config
+	DB                 *sqlx.DB
+	DBPool             *pgxpool.Pool
+	router             *gin.Engine
+	server             *http.Server
+	logger             *zap.Logger
+	riverService       *riverqueue.RiverService
+	redisClient        *redis.Client
+	Version            string
+	grafanaCloudPusher *monitoring.GrafanaCloudPusher
 }
 
 func NewApp(
@@ -50,14 +52,15 @@ func NewApp(
 	logger.Info("OTP manager initialized with Redis")
 
 	app := &App{
-		config:       cfg,
-		DB:           db,
-		DBPool:       dbPool,
-		router:       router,
-		logger:       logger,
-		riverService: riverService,
-		redisClient:  redisClient,
-		Version:      os.Getenv("REFYNE_VERSION"),
+		config:             cfg,
+		DB:                 db,
+		DBPool:             dbPool,
+		router:             router,
+		logger:             logger,
+		riverService:       riverService,
+		redisClient:        redisClient,
+		Version:            os.Getenv("REFYNE_VERSION"),
+		grafanaCloudPusher: monitoring.NewGrafanaCloudPusher(logger),
 	}
 
 	return app, nil
@@ -97,6 +100,13 @@ func (a *App) Start(ctx context.Context) error {
 	}()
 
 	a.logger.Info("Server started successfully", zap.String("address", addr))
+
+	// Start Grafana Cloud metrics pusher
+	if err := a.grafanaCloudPusher.Start(ctx); err != nil {
+		a.logger.Error("Failed to start Grafana Cloud metrics pusher", zap.Error(err))
+		// Continue running even if Grafana Cloud pusher fails
+	}
+
 	return nil
 
 }
@@ -104,12 +114,18 @@ func (a *App) Start(ctx context.Context) error {
 func (a *App) Stop(ctx context.Context) error {
 	a.logger.Info("Stopping application")
 
-	// Stop River service first
+	// Stop Grafana Cloud metrics pusher
+	if a.grafanaCloudPusher != nil {
+		a.logger.Info("Stopping Grafana Cloud metrics pusher")
+		a.grafanaCloudPusher.Stop()
+		a.logger.Info("Grafana Cloud metrics pusher stopped")
+	}
+
+	// Stop River service
 	if a.riverService != nil {
 		a.logger.Info("Stopping River service")
 		if err := a.riverService.Stop(); err != nil {
 			a.logger.Error("Failed to stop River service", zap.Error(err))
-			// Continue with shutdown process even if River service fails to stop gracefully
 		} else {
 			a.logger.Info("River service stopped successfully")
 		}

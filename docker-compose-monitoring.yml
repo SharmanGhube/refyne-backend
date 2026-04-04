@@ -20,9 +20,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'  # Allow hot reload via API
     networks:
-      - refyne-network
-    depends_on:
-      - refyne-backend
+      - monitoring
     environment:
       TZ: 'UTC'
     restart: unless-stopped
@@ -50,7 +48,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     networks:
-      - refyne-network
+      - monitoring
     depends_on:
       - prometheus
     restart: unless-stopped
@@ -68,7 +66,7 @@ volumes:
     driver: local
 
 networks:
-  refyne-network:
+  monitoring:
     driver: bridge
 
 # Note: This compose file expects the main refyne-backend to be running

@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -347,11 +346,4 @@ func (w *WebhookServiceImpl) mapPaddleStatus(paddleStatus string) string {
 	}
 
 	return "inactive"
-}
-
-// MarshalJSON helper for debugging
-func (w *WebhookServiceImpl) debugPrintData(data map[string]interface{}) {
-	if bytes, err := json.MarshalIndent(data, "", "  "); err == nil {
-		w.logger.Debug("Webhook data", zap.String("data", string(bytes)))
-	}
 }

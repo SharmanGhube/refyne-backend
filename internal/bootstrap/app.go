@@ -79,15 +79,6 @@ func (a *App) Start(ctx context.Context) error {
 		return err
 	}
 
-	// Start river service later
-	// if err := a.riverService.Start(); err != nil {
-	// 	a.logger.Error("Failed to start River service", zap.Error(err))
-	// 	return fmt.Errorf("failed to start River service: %w", err)
-	// }
-	// a.logger.Info("River service started successfully")
-
-	// Start prometheus service
-
 	// Start HTTP server
 	addr := fmt.Sprintf(":%s", a.config.Port)
 	a.server = &http.Server{

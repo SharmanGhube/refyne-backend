@@ -125,8 +125,6 @@ func (s *AuthServiceImpl) RegisterUser(c *gin.Context, firstname, lastname, user
 		// Don't fail registration if email sending fails
 	}
 
-	// TODO Create Default User Settings
-
 	return nil
 }
 

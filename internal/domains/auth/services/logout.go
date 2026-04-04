@@ -92,10 +92,5 @@ func (s *AuthServiceImpl) LogoutAllDevices(c *gin.Context, userID string) *error
 		zap.String("requestID", middlewares.GetRequestID(c)),
 		zap.String("userID", userID))
 
-	// TODO: When implementing token storage:
-	// 1. Query all active tokens for userID from storage
-	// 2. Blacklist each token
-	// 3. Remove from active tokens storage
-
 	return nil
 }

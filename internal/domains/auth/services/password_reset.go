@@ -251,8 +251,6 @@ func (s *AuthServiceImpl) ResetPassword(c *gin.Context, token, newPassword strin
 		)
 	}
 
-	// TODO: Send password change confirmation email (Phase 1.3)
-
 	s.logger.Info("Password reset successfully",
 		zap.String("requestID", middlewares.GetRequestID(c)),
 		zap.String("user_id", *userID),

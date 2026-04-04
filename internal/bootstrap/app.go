@@ -15,23 +15,21 @@ import (
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/database/migrations"
 	authUtils "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
-	"github.com/refynehq/refyne-backend/internal/monitoring"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	config             *config.Config
-	DB                 *sqlx.DB
-	DBPool             *pgxpool.Pool
-	router             *gin.Engine
-	server             *http.Server
-	logger             *zap.Logger
-	riverService       *riverqueue.RiverService
-	redisClient        *redis.Client
-	Version            string
-	grafanaCloudPusher *monitoring.GrafanaCloudPusher
+	config       *config.Config
+	DB           *sqlx.DB
+	DBPool       *pgxpool.Pool
+	router       *gin.Engine
+	server       *http.Server
+	logger       *zap.Logger
+	riverService *riverqueue.RiverService
+	redisClient  *redis.Client
+	Version      string
 }
 
 func NewApp(
@@ -52,15 +50,14 @@ func NewApp(
 	logger.Info("OTP manager initialized with Redis")
 
 	app := &App{
-		config:             cfg,
-		DB:                 db,
-		DBPool:             dbPool,
-		router:             router,
-		logger:             logger,
-		riverService:       riverService,
-		redisClient:        redisClient,
-		Version:            os.Getenv("REFYNE_VERSION"),
-		grafanaCloudPusher: monitoring.NewGrafanaCloudPusher(logger),
+		config:       cfg,
+		DB:           db,
+		DBPool:       dbPool,
+		router:       router,
+		logger:       logger,
+		riverService: riverService,
+		redisClient:  redisClient,
+		Version:      os.Getenv("REFYNE_VERSION"),
 	}
 
 	return app, nil
@@ -110,13 +107,6 @@ func (a *App) Start(ctx context.Context) error {
 
 func (a *App) Stop(ctx context.Context) error {
 	a.logger.Info("Stopping application")
-
-	// Stop Grafana Cloud metrics pusher
-	if a.grafanaCloudPusher != nil {
-		a.logger.Info("Stopping Grafana Cloud metrics pusher")
-		a.grafanaCloudPusher.Stop()
-		a.logger.Info("Grafana Cloud metrics pusher stopped")
-	}
 
 	// Stop River service
 	if a.riverService != nil {

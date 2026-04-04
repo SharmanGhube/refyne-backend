@@ -101,11 +101,8 @@ func (a *App) Start(ctx context.Context) error {
 
 	a.logger.Info("Server started successfully", zap.String("address", addr))
 
-	// Start Grafana Cloud metrics pusher
-	if err := a.grafanaCloudPusher.Start(ctx); err != nil {
-		a.logger.Error("Failed to start Grafana Cloud metrics pusher", zap.Error(err))
-		// Continue running even if Grafana Cloud pusher fails
-	}
+	// Metrics are exposed at /metrics endpoint for Grafana Cloud scraping
+	a.logger.Info("Prometheus metrics available at /metrics endpoint")
 
 	return nil
 

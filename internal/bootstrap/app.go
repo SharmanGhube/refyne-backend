@@ -51,6 +51,10 @@ func NewApp(
 	authUtils.InitOTPManager(redisClient)
 	logger.Info("OTP manager initialized with Redis")
 
+	// Initialize Prometheus metrics
+	monitoring.Initialize()
+	logger.Info("Prometheus metrics initialized")
+
 	app := &App{
 		config:             cfg,
 		DB:                 db,

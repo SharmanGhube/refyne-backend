@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	emailJobs "github.com/refynehq/refyne-backend/internal/domains/email/jobs"
+	instagramJobs "github.com/refynehq/refyne-backend/internal/domains/instagram/jobs"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/riverqueue/river"
@@ -28,6 +29,11 @@ type WorkerDependancies struct {
 	EmailWorker *emailJobs.EmailWorker
 
 	// Instagram
+	InstagramWebhookWorker *instagramJobs.InstagramWebhookWorker
+	SyncMediaWorker        *instagramJobs.SyncMediaWorker
+	FetchInsightsWorker    *instagramJobs.FetchInsightsWorker
+	RefreshTokenWorker     *instagramJobs.RefreshTokenWorker
+	ProcessAIWorker        *instagramJobs.ProcessAIWorker
 }
 
 // I have no idea what the fuck is going on here
@@ -77,10 +83,39 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 		logger.Info("Registered Email Worker")
 	}
 
+	// Instagram workers
+	if deps.InstagramWebhookWorker != nil {
+		river.AddWorker(workers, deps.InstagramWebhookWorker)
+		logger.Info("Registered Instagram Webhook Worker")
+	}
+	if deps.SyncMediaWorker != nil {
+		river.AddWorker(workers, deps.SyncMediaWorker)
+		logger.Info("Registered Sync Media Worker")
+	}
+	if deps.FetchInsightsWorker != nil {
+		river.AddWorker(workers, deps.FetchInsightsWorker)
+		logger.Info("Registered Fetch Insights Worker")
+	}
+	if deps.RefreshTokenWorker != nil {
+		river.AddWorker(workers, deps.RefreshTokenWorker)
+		logger.Info("Registered Refresh Token Worker")
+	}
+	if deps.ProcessAIWorker != nil {
+		river.AddWorker(workers, deps.ProcessAIWorker)
+		logger.Info("Registered Process AI Worker")
+	}
+
 	logger.Info("Registered River Workers")
 
-	// Periodic Jobs
+	// Periodic Jobs - scheduled via external scheduler or manual queueing
+	// These jobs are typically triggered by:
+	// - SyncMediaWorker: Manual API call or external scheduler (30min interval)
+	// - FetchInsightsWorker: Manual API call or external scheduler (daily)
+	// - RefreshTokenWorker: Manual API call or external scheduler (50-day interval)
 	periodicJobs := []*river.PeriodicJob{}
+
+	// TODO: In production, use external scheduler (cron, AWS EventBridge, etc.)
+	// or implement internal scheduler with go-cron package
 
 	// Create River client
 	riverClient, err := river.NewClient(

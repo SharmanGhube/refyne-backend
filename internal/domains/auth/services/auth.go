@@ -12,6 +12,7 @@ import (
 	authUtils "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
 	userModels "github.com/refynehq/refyne-backend/internal/domains/user/models"
 	userUtils "github.com/refynehq/refyne-backend/internal/domains/user/utils"
+	"github.com/refynehq/refyne-backend/internal/monitoring"
 	"github.com/refynehq/refyne-backend/internal/shared/utils"
 	"github.com/refynehq/refyne-backend/internal/shared/validation"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
@@ -131,8 +132,13 @@ func (s *AuthServiceImpl) RegisterUser(c *gin.Context, firstname, lastname, user
 func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*userModels.User, *authUtils.TokenPair, *errors.AppError) {
 	s.logger.Info("Logging in User", zap.String("requestID", middlewares.GetRequestID(c)))
 
+	// Record login attempt
+	metrics := monitoring.GetMetrics()
+	metrics.RecordAuthLoginAttempt("password")
+
 	// Validate Input parameters
 	if !userUtils.CheckValidEmail(email) {
+		metrics.RecordAuthLoginFailure("invalid_email")
 		return nil, nil, serviceErrors.NewInvalidEmailFormatError(c, email)
 	}
 
@@ -144,6 +150,7 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 	}
 	if !userExists {
 		s.logger.Warn("User with email does not exist", zap.String("email", email))
+		metrics.RecordAuthLoginFailure("user_not_found")
 		return nil, nil, serviceErrors.NewUserNotFoundError(c, email)
 	}
 
@@ -156,6 +163,7 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 
 	// Check if account is locked
 	if lockErr := s.checkAccountLockout(c, user.ID); lockErr != nil {
+		metrics.RecordAuthLoginFailure("account_locked")
 		return nil, nil, lockErr
 	}
 
@@ -163,20 +171,24 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 	if isValid, err := authUtils.CheckHash(password, user.PasswordHash); err != nil {
 		s.logger.Error("Password hash comparison failed", zap.Error(err))
 		s.handleFailedLogin(c, user.ID, email, "password")
+		metrics.RecordAuthLoginFailure("invalid_credentials")
 		return nil, nil, serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	} else if !isValid {
 		s.logger.Warn("Invalid password attempt", zap.String("email", email))
 		s.handleFailedLogin(c, user.ID, email, "password")
+		metrics.RecordAuthLoginFailure("invalid_credentials")
 		return nil, nil, serviceErrors.NewInvalidPasswordError(c, "Invalid password")
 	}
 
 	// Check account status (is_active, is_verified, etc.)
 	if !user.IsActive {
 		s.logger.Warn("Attempt to login to inactive account", zap.String("email", email))
+		metrics.RecordAuthLoginFailure("user_inactive")
 		return nil, nil, serviceErrors.NewUserNotActiveError(c, email)
 	}
 	if !user.IsVerified {
 		s.logger.Warn("Attempt to login to unverified account", zap.String("email", email))
+		metrics.RecordAuthLoginFailure("user_unverified")
 		return nil, nil, serviceErrors.NewUserNotVerifiedError(c, email)
 	}
 
@@ -192,6 +204,10 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 		s.logger.Error("Failed to generate token pair", zap.Error(tokenErr))
 		return nil, nil, tokenErr
 	}
+
+	// Record token generation
+	metrics.RecordTokenGenerated("access")
+	metrics.RecordTokenGenerated("refresh")
 
 	// Track device session
 	deviceInfo := utils.ExtractDeviceInfo(c)
@@ -397,10 +413,14 @@ func (s *AuthServiceImpl) VerifyOTPAndLogin(c *gin.Context, email, otp string) (
 func (s *AuthServiceImpl) RefreshToken(c *gin.Context, refreshToken string) (*authUtils.TokenPair, *errors.AppError) {
 	s.logger.Info("Refreshing token", zap.String("requestID", middlewares.GetRequestID(c)))
 
+	metrics := monitoring.GetMetrics()
+	metrics.RecordAuthLoginAttempt("refresh")
+
 	// Validate refresh token
 	claims, err := authUtils.ValidateAndExtractToken(refreshToken)
 	if err != nil {
 		s.logger.Warn("Invalid refresh token", zap.Error(err))
+		metrics.RecordAuthLoginFailure("invalid_token")
 		return nil, serviceErrors.NewInvalidTokenError(c, "Invalid refresh token")
 	}
 
@@ -410,6 +430,7 @@ func (s *AuthServiceImpl) RefreshToken(c *gin.Context, refreshToken string) (*au
 	email := claims.Email
 
 	if userID == "" || username == "" || email == "" {
+		metrics.RecordAuthLoginFailure("invalid_token_claims")
 		return nil, serviceErrors.NewInvalidTokenError(c, "Invalid token claims")
 	}
 
@@ -424,19 +445,23 @@ func (s *AuthServiceImpl) RefreshToken(c *gin.Context, refreshToken string) (*au
 		s.logger.Warn("User ID mismatch in token",
 			zap.String("tokenUserID", userID),
 			zap.String("dbUserID", user.ID))
+		metrics.RecordAuthLoginFailure("token_user_mismatch")
 		return nil, serviceErrors.NewInvalidTokenError(c, "Invalid token")
 	}
 
 	// Check user status - same comprehensive checks as in login
 	if !user.IsVerified {
+		metrics.RecordAuthLoginFailure("user_unverified")
 		return nil, serviceErrors.NewUserNotVerifiedError(c, user.Email)
 	}
 
 	if !user.IsActive {
+		metrics.RecordAuthLoginFailure("user_inactive")
 		return nil, serviceErrors.NewUserNotActiveError(c, user.Email)
 	}
 
 	if user.Status != "active" {
+		metrics.RecordAuthLoginFailure("user_inactive")
 		return nil, serviceErrors.NewUserNotActiveError(c, user.Email)
 	}
 
@@ -445,6 +470,10 @@ func (s *AuthServiceImpl) RefreshToken(c *gin.Context, refreshToken string) (*au
 	if appErr != nil {
 		return nil, appErr
 	}
+
+	// Record token generation
+	metrics.RecordTokenGenerated("access")
+	metrics.RecordTokenGenerated("refresh")
 
 	s.logger.Info("Token refreshed successfully", zap.String("userID", userID))
 	return tokenPair, nil

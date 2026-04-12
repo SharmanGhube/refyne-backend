@@ -1,0 +1,182 @@
+# AlertManager Configuration for Refyne Backend
+# Manages alert routing, grouping, and notifications
+#
+# Place this at: monitoring/alertmanager/alertmanager.yml
+# Update docker-compose-monitoring.yml to include AlertManager service
+
+global:
+  resolve_timeout: 5m
+  # Slack webhook URL - set via environment variable
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+# The root route with all the parameters - other routes will inherit them
+route:
+  # The root route must not have any matchers as it is the entry point for all alerts
+  receiver: 'default'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 30s          # Wait before sending notification
+  group_interval: 5m       # Re-group after this interval
+  repeat_interval: 12h     # Re-send notification after this interval
+
+  # Sub-routes:
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical'
+      group_wait: 10s
+      repeat_interval: 1h
+      routes:
+        # Database alerts - also notify database team
+        - match:
+            component: database
+          receiver: 'database-team'
+
+        # Security alerts
+        - match:
+            component: security
+          receiver: 'security-team'
+
+        # Payment alerts
+        - match:
+            component: payments
+          receiver: 'payments-team'
+
+    # Warning alerts - batched notification
+    - match:
+        severity: warning
+      receiver: 'warning'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Info alerts - daily digest
+    - match:
+        severity: info
+      receiver: 'info'
+      group_wait: 5m
+      repeat_interval: 24h
+
+# Inhibition rules - suppress certain alerts
+inhibit_rules:
+  # Don't send warning if critical alert is firing
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'component']
+
+  # Don't send low priority if high priority is firing
+  - source_match:
+      severity: critical
+    target_match:
+      severity: info
+    equal: ['alertname', 'component']
+
+# Receivers - communication channels
+receivers:
+  - name: 'default'
+    slack_configs:
+      - channel: '#refyne-alerts'
+        title: 'Refyne Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        actions:
+          - type: button
+            text: 'View Dashboard'
+            url: 'http://grafana.refyne.internal/d/refyne-backend-enhanced'
+
+  - name: 'critical'
+    slack_configs:
+      - channel: '#refyne-critical'
+        title: '🔴 CRITICAL ALERT'
+        text: |
+          *{{ .GroupLabels.alertname }}*
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          Action: {{ .Annotations.action }}
+          {{ end }}
+        send_resolved: true
+        color: 'danger'
+        actions:
+          - type: button
+            text: 'View Dashboard'
+            url: 'http://grafana.refyne.internal/d/refyne-backend-enhanced'
+          - type: button
+            text: 'View Logs'
+            url: 'http://loki.refyne.internal/logs'
+
+  - name: 'warning'
+    slack_configs:
+      - channel: '#refyne-warnings'
+        title: '⚠️ Warning Alert'
+        text: |
+          *{{ .GroupLabels.alertname }}*
+          {{ range .Alerts.Firing }}
+          {{ .Annotations.summary }}
+          {{ end }}
+        send_resolved: true
+        color: 'warning'
+
+  - name: 'info'
+    slack_configs:
+      - channel: '#refyne-info'
+        title: 'ℹ️ Info Alert'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+        send_resolved: false
+        color: 'good'
+
+  - name: 'database-team'
+    slack_configs:
+      - channel: '@database-oncall'
+        title: '🗄️ Database Alert - URGENT'
+        text: |
+          *{{ .GroupLabels.alertname }}*
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+        color: 'danger'
+        actions:
+          - type: button
+            text: 'View Dashboard'
+            url: 'http://grafana.refyne.internal/d/refyne-backend-enhanced'
+          - type: button
+            text: 'Runbook'
+            url: '{{ (index .Alerts 0).Annotations.runbook }}'
+
+  - name: 'security-team'
+    slack_configs:
+      - channel: '@security-oncall'
+        title: '🔒 Security Alert - ACTION REQUIRED'
+        text: |
+          *{{ .GroupLabels.alertname }}*
+          {{ range .Alerts }}
+          Impact: {{ .Annotations.impact }}
+          {{ .Annotations.description }}
+          Action: {{ .Annotations.action }}
+          {{ end }}
+        send_resolved: true
+        color: 'danger'
+
+  - name: 'payments-team'
+    slack_configs:
+      - channel: '@payments-oncall'
+        title: '💳 Payment System Alert'
+        text: |
+          *{{ .GroupLabels.alertname }}*
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+        color: 'danger'
+
+# Templates for alert messages
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

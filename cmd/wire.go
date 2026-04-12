@@ -12,6 +12,7 @@ import (
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth"
 	domaincontext "github.com/refynehq/refyne-backend/internal/domains/context"
 	email "github.com/refynehq/refyne-backend/internal/domains/email"
+	instagram "github.com/refynehq/refyne-backend/internal/domains/instagram"
 	notification "github.com/refynehq/refyne-backend/internal/domains/notification"
 	otto "github.com/refynehq/refyne-backend/internal/domains/otto"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription"
@@ -39,6 +40,7 @@ var AppSet = wire.NewSet(
 	auth.ProviderSet,
 	domaincontext.ProviderSet,
 	email.ProviderSet,
+	instagram.ProviderSet,
 	notification.ProviderSet,
 	otto.ProviderSet,
 	subscription.ProviderSet,

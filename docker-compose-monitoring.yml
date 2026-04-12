@@ -12,6 +12,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerting_rules.yml:/etc/prometheus/alerting_rules.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -19,13 +20,42 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'  # Allow hot reload via API
+      - '--alertmanager.url=http://alertmanager:9093'  # Tell Prometheus where AlertManager is
     networks:
       - monitoring
     environment:
       TZ: 'UTC'
     restart: unless-stopped
+    depends_on:
+      - alertmanager
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # AlertManager - Alert routing and notifications
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: refyne-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.route-prefix=/'
+    networks:
+      - monitoring
+    environment:
+      TZ: 'UTC'
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -62,6 +92,8 @@ services:
 volumes:
   prometheus_data:
     driver: local
+  alertmanager_data:
+    driver: local
   grafana_data:
     driver: local
 
@@ -71,3 +103,9 @@ networks:
 
 # Note: This compose file expects the main refyne-backend to be running
 # Start with: docker-compose -f docker-compose.yml -f docker-compose-monitoring.yml up -d
+#
+# AlertManager Webhook Setup:
+# 1. Get Slack webhook URL: https://docs.refyne.internal/docs/slack-integration
+# 2. Set environment: export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
+# 3. Or add to .env file: SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+

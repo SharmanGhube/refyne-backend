@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
+	instagram "github.com/refynehq/refyne-backend/internal/domains/instagram/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
 	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace/routes"
@@ -99,6 +100,9 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 
 		// Workspace routes (multi-workspace support)
 		workspace.SetupWorkspaceRoutes(apiRoutes, registry)
+
+		// Instagram routes (OAuth, media, analytics, AI features)
+		instagram.SetupInstagramRoutes(apiRoutes, registry)
 
 		// Protected test route
 		protected := apiRoutes.Group("/protected")

@@ -52,3 +52,11 @@ temp/
 *.db
 *.sqlite
 *.sqlite3
+
+# Local Docker volume data (bind mounts)
+DBdata/
+pgadmin_data/
+redisinsight_data/
+redis_data/
+grafana_data/
+prometheus_data/

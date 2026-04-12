@@ -5,6 +5,7 @@ import (
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth"
 	domaincontext "github.com/refynehq/refyne-backend/internal/domains/context"
 	email "github.com/refynehq/refyne-backend/internal/domains/email"
+	instagram "github.com/refynehq/refyne-backend/internal/domains/instagram"
 	notification "github.com/refynehq/refyne-backend/internal/domains/notification"
 	otto "github.com/refynehq/refyne-backend/internal/domains/otto"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription"
@@ -18,6 +19,7 @@ type HandlerRegistry struct {
 	AI           *ai.AIRegistry
 	Context      *domaincontext.ContextRegistry
 	Email        *email.EmailRegistry
+	Instagram    *instagram.InstagramRegistry
 	Notification *notification.NotificationRegistry
 	Otto         *otto.OttoRegistry
 	Workspace    *workspace.WorkspaceRegistry
@@ -30,6 +32,7 @@ func NewHandlerRegistry(
 	air *ai.AIRegistry,
 	cr *domaincontext.ContextRegistry,
 	er *email.EmailRegistry,
+	ir *instagram.InstagramRegistry,
 	nr *notification.NotificationRegistry,
 	or *otto.OttoRegistry,
 	wr *workspace.WorkspaceRegistry,
@@ -41,6 +44,7 @@ func NewHandlerRegistry(
 		AI:           air,
 		Context:      cr,
 		Email:        er,
+		Instagram:    ir,
 		Notification: nr,
 		Otto:         or,
 		Workspace:    wr,

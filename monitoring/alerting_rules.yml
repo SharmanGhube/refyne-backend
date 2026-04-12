@@ -1,0 +1,295 @@
+# Alerting Rules for Refyne Backend Production Monitoring
+# Configure these rules in Prometheus to enable proactive alerting
+#
+# Usage: Add this file to Prometheus via rule_files in prometheus.yml:
+#   rule_files:
+#     - 'alerting_rules.yml'
+
+groups:
+  - name: refyne_app_health
+    interval: 30s
+    rules:
+      # HIGH PRIORITY ALERTS
+
+      - alert: HighErrorRate
+        expr: rate(refyne_http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High HTTP 5xx error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          dashboard: "http://localhost:3000/d/refyne-backend-enhanced"
+          runbook: "https://docs.refyne.internal/runbooks/high-error-rate"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(refyne_http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High P95 latency detected"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 1s)"
+          dashboard: "http://localhost:3000/d/refyne-backend-enhanced"
+
+      - alert: CriticalLatency
+        expr: histogram_quantile(0.99, rate(refyne_http_request_duration_seconds_bucket[5m])) > 3
+        for: 3m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Critical P99 latency detected"
+          description: "P99 latency is {{ $value | humanizeDuration }} (threshold: 3s)"
+          impact: "Users experiencing slow responses"
+
+      # DATABASE ALERTS
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: (refyne_db_connections_used{pool="main"} / refyne_db_connections_active{pool="main"}) > 0.9
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+          component: database
+        annotations:
+          summary: "Database connection pool 90% full"
+          description: "DB pool usage: {{ $value | humanizePercentage }} (threshold: 90%)"
+          impact: "New requests may fail due to lack of available connections"
+          action: "Scale database connections or reduce load"
+
+      - alert: DatabaseConnectionPoolUnsustainable
+        expr: (refyne_db_connections_used{pool="main"} / refyne_db_connections_active{pool="main"}) > 0.95
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+          component: database
+        annotations:
+          summary: "Database connection pool dangerously full"
+          description: "DB pool usage: {{ $value | humanizePercentage }} (threshold: 95%)"
+          action: "IMMEDIATE: Reduce load or scale database"
+
+      - alert: DatabaseUnhealthy
+        expr: up{job="refyne-backend-local"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+          component: database
+        annotations:
+          summary: "Database is not responding"
+          description: "Database health check failed for 1 minute"
+          action: "IMMEDIATE: Check database service health"
+
+      # REDIS ALERTS
+
+      - alert: RedisHighErrorRate
+        expr: rate(refyne_redis_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+          component: cache
+        annotations:
+          summary: "High Redis error rate"
+          description: "Redis errors: {{ $value | humanize }}/s (threshold: 0.1/s)"
+          impact: "Rate limiting and session management may be degraded"
+
+      - alert: RedisUp
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: backend
+          component: cache
+        annotations:
+          summary: "Redis instance is down"
+          description: "Redis has been unavailable for 30 seconds"
+          action: "IMMEDIATE: Restart Redis or failover"
+
+      # AUTHENTICATION & SECURITY ALERTS
+
+      - alert: HighFailedLoginRate
+        expr: rate(refyne_auth_login_failures_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+          component: security
+        annotations:
+          summary: "High failed login rate detected"
+          description: "Failed login rate: {{ $value | humanize }}/s (threshold: 1/s)"
+          impact: "Possible brute force attack or user credential issues"
+          action: "Review audit logs for suspicious patterns"
+
+      - alert: FailedLoginSpike
+        expr: rate(refyne_auth_login_failures_total[1m]) > 10
+        for: 30s
+        labels:
+          severity: critical
+          team: backend
+          component: security
+        annotations:
+          summary: "CRITICAL: Login failure spike detected"
+          description: "Failed login rate: {{ $value | humanize }}/s (threshold: 10/s)"
+          impact: "Likely brute force attack in progress"
+          action: "IMMEDIATE: Investigate and consider rate limit bypass protection"
+
+      - alert: NoTokensGenerated
+        expr: rate(refyne_auth_tokens_generated_total[5m]) == 0 and increase(refyne_http_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          component: auth
+        annotations:
+          summary: "No tokens generated despite traffic"
+          description: "Token generation stopped while receiving traffic"
+          impact: "Possible authentication system failure"
+
+      # SUBSCRIPTION/PAYMENT ALERTS
+
+      - alert: PaddleAPIErrors
+        expr: rate(refyne_paddle_api_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          component: payments
+        annotations:
+          summary: "Paddle API errors detected"
+          description: "Error rate: {{ $value | humanize }}/s (threshold: 0.01/s)"
+          impact: "Subscription operations may fail"
+          action: "Check Paddle service status and logs"
+
+      - alert: PaddleAPIDown
+        expr: rate(refyne_paddle_api_calls_total[1m]) == 0 and time() - timestamp(refyne_paddle_api_calls_total) < 300
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+          component: payments
+        annotations:
+          summary: "Paddle API not responding"
+          description: "No successful Paddle API calls for 2 minutes"
+          impact: "Cannot process subscriptions"
+          action: "Check Paddle service status"
+
+      - alert: SubscriptionCountWarning
+        expr: refyne_subscriptions_by_tier{status="active"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          team: business
+          component: subscriptions
+        annotations:
+          summary: "No active subscriptions detected"
+          description: "Zero active subscriptions in system"
+          impact: "Possible data issue or service problem"
+
+      # EMAIL SERVICE ALERTS
+
+      - alert: EmailJobFailureRate
+        expr: (rate(refyne_email_jobs_failures_total[5m]) / rate(refyne_email_jobs_processed_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          component: email
+        annotations:
+          summary: "High email job failure rate"
+          description: "Failure rate: {{ $value | humanizePercentage }} (threshold: 10%)"
+          impact: "Users may not receive notifications and emails"
+          action: "Check SMTP service and email queue"
+
+      - alert: EmailQueueBacklog
+        expr: increase(refyne_email_jobs_processed_total[5m]) == 0 and increase(refyne_email_jobs_failures_total[5m]) > 0
+        for: 3m
+        labels:
+          severity: critical
+          team: backend
+          component: email
+        annotations:
+          summary: "Email queue processing stopped"
+          description: "Email jobs failing but not processing"
+          impact: "No emails being sent"
+          action: "Restart email job worker or check logs"
+
+      # RATE LIMITING ALERTS
+
+      - alert: HighRateLimitViolations
+        expr: rate(refyne_rate_limit_exceeded_total[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+          team: backend
+          component: ratelimit
+        annotations:
+          summary: "High rate limit violations"
+          description: "Rate limit hits: {{ $value | humanize }}/s (threshold: 10/s)"
+          impact: "Users are hitting rate limits"
+          action: "Consider increasing rate limits or load testing detected"
+
+      - alert: RateLimitSpike
+        expr: increase(refyne_rate_limit_exceeded_total[1m]) > 100
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+          component: ratelimit
+        annotations:
+          summary: "CRITICAL: Rate limit spike detected"
+          description: "Rate limit violations in 1 min: {{ $value | humanize }}"
+          impact: "Possible DDoS attack or misconfiguration"
+          action: "Review traffic patterns and source IPs"
+
+      # GENERAL HEALTH ALERTS
+
+      - alert: LowRequestRate
+        expr: (rate(refyne_http_requests_total[5m]) < 0.1) and ON() (increase(refyne_http_requests_total[15m]) > 0)
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Request rate has dropped significantly"
+          description: "Request rate: {{ $value | humanize }}/s"
+          impact: "Possible service degradation or client issues"
+
+      - alert: ServiceUnresponsive
+        expr: increase(refyne_http_requests_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Service appears unresponsive"
+          description: "No HTTP requests processed in 5 minutes"
+          action: "IMMEDIATE: Check service health and logs"
+
+  - name: refyne_business_metrics
+    interval: 1m
+    rules:
+      - alert: TrafficAboveCapacity
+        expr: sum(rate(refyne_http_requests_total[5m])) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Traffic exceeds capacity threshold"
+          description: "Request rate: {{ $value | humanize }}/s (threshold: 1000/s)"
+          action: "Consider scaling infrastructure"
+
+      - alert: NoTraffic24Hours
+        expr: increase(refyne_http_requests_total[24h]) == 0
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "No traffic detected in 24 hours"
+          description: "Service has received zero requests in the last 24 hours"
+          impact: "Service may be offline or misconfigured"

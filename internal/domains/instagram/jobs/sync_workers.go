@@ -208,6 +208,7 @@ func (w *SyncMediaWorker) Work(ctx context.Context, job *river.Job[SyncMediaArgs
 // FetchInsightsArgs represents arguments for insights fetch job
 type FetchInsightsArgs struct {
 	AccountID string `json:"account_id"`
+	TrendDays int    `json:"trend_days"` // 0 = current day only, >0 = trend analysis
 }
 
 func (FetchInsightsArgs) Kind() string { return "instagram_fetch_insights" }
@@ -215,29 +216,23 @@ func (FetchInsightsArgs) Kind() string { return "instagram_fetch_insights" }
 // FetchInsightsWorker fetches Instagram insights (analytics) for an account
 type FetchInsightsWorker struct {
 	river.WorkerDefaults[FetchInsightsArgs]
-	mediaService    services.InstagramMediaService
+	insightsService services.InstagramInsightsService
 	insightsRepo    repository.InstagramInsightsRepository
-	accountRepo     repository.InstagramAccountRepository
-	rateLimiter     services.RateLimitChecker
 	db              *sqlx.DB
 	logger          *zap.Logger
 }
 
 // NewFetchInsightsWorker creates a new insights worker
 func NewFetchInsightsWorker(
-	mediaService services.InstagramMediaService,
+	insightsService services.InstagramInsightsService,
 	insightsRepo repository.InstagramInsightsRepository,
-	accountRepo repository.InstagramAccountRepository,
-	rateLimiter services.RateLimitChecker,
 	db *sqlx.DB,
 ) *FetchInsightsWorker {
 	return &FetchInsightsWorker{
-		mediaService: mediaService,
-		insightsRepo: insightsRepo,
-		accountRepo:  accountRepo,
-		rateLimiter:  rateLimiter,
-		db:           db,
-		logger:       logging.GetJobLogger("FetchInsightsWorker"),
+		insightsService: insightsService,
+		insightsRepo:    insightsRepo,
+		db:              db,
+		logger:          logging.GetJobLogger("FetchInsightsWorker"),
 	}
 }
 
@@ -246,39 +241,66 @@ func NewFetchInsightsWorker(
 func (w *FetchInsightsWorker) Work(ctx context.Context, job *river.Job[FetchInsightsArgs]) error {
 	w.logger.Info("Fetching Instagram insights",
 		zap.String("account_id", job.Args.AccountID),
+		zap.Int("trend_days", job.Args.TrendDays),
 	)
 
-	// Check rate limit
-	canCall, _, err := w.rateLimiter.CanMakeCall(ctx, job.Args.AccountID)
+	// Get account to retrieve access token
+	account := &models.InstagramAccount{}
+	accountQuery := "SELECT id, user_id, access_token FROM instagram_accounts WHERE id = $1 LIMIT 1"
+	err := w.db.QueryRowContext(ctx, accountQuery, job.Args.AccountID).Scan(&account.ID, &account.UserID, &account.AccessToken)
 	if err != nil {
-		w.logger.Error("Failed to check rate limit", zap.Error(err))
+		w.logger.Error("Failed to retrieve account access token",
+			zap.Error(err),
+			zap.String("account_id", job.Args.AccountID),
+		)
 		return err
 	}
 
-	if !canCall {
-		w.logger.Warn("Rate limit reached for insights fetch", zap.String("account_id", job.Args.AccountID))
-		return fmt.Errorf("rate limit reached")
+	if account.AccessToken == "" {
+		w.logger.Error("Account has no access token",
+			zap.String("account_id", job.Args.AccountID),
+		)
+		return fmt.Errorf("no access token for account %s", job.Args.AccountID)
 	}
 
-	// Record the API call
-	if err := w.rateLimiter.RecordCall(ctx, job.Args.AccountID); err != nil {
-		w.logger.Error("Failed to record API call", zap.Error(err))
+	// Fetch insights from Instagram API
+	insights, err := w.insightsService.FetchAccountInsights(ctx, job.Args.AccountID, account.AccessToken)
+	if err != nil {
+		w.logger.Error("Failed to fetch insights from Instagram API",
+			zap.Error(err),
+			zap.String("account_id", job.Args.AccountID),
+		)
 		return err
 	}
 
-	// TODO: Call Instagram Insights API
-	// Metrics to fetch:
-	// - Impressions
-	// - Reach
-	// - Profile views
-	// - Follower count
-	// - Engagement rate
-	// - Growth rate
-	// - Demographics
+	if insights == nil {
+		w.logger.Warn("No insights data returned",
+			zap.String("account_id", job.Args.AccountID),
+		)
+		return nil
+	}
 
-	// For now, log the placeholder
-	w.logger.Info("Insights fetch complete (placeholder)",
+	// Store insights in database
+	if err := w.insightsRepo.StoreAccountInsights(ctx, insights); err != nil {
+		w.logger.Error("Failed to store account insights",
+			zap.Error(err),
+			zap.String("account_id", job.Args.AccountID),
+		)
+		return err
+	}
+
+	// Update account's last_insights_at timestamp
+	updateQuery := "UPDATE instagram_accounts SET last_insights_at = $1 WHERE id = $2"
+	_, err = w.db.ExecContext(ctx, updateQuery, time.Now(), job.Args.AccountID)
+	if err != nil {
+		w.logger.Warn("Failed to update last_insights_at", zap.Error(err))
+	}
+
+	w.logger.Info("Successfully stored account insights",
 		zap.String("account_id", job.Args.AccountID),
+		zap.Int("impressions", insights.Impressions),
+		zap.Int("reach", insights.Reach),
+		zap.Int("follower_count", insights.FollowerCount),
 	)
 
 	return nil

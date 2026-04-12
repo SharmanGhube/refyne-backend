@@ -20,6 +20,7 @@ var ProviderSet = wire.NewSet(
 	services.NewInstagramOAuthService,
 	services.NewInstagramWebhookService,
 	services.NewInstagramMediaService,
+	services.NewInstagramInsightsService,
 	services.NewGeminiService,
 	services.NewWebhookDeduplicator,
 	services.NewRateLimitChecker,

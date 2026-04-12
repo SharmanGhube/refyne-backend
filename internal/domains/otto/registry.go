@@ -1,11 +1,15 @@
 package otto
 
+import "github.com/refynehq/refyne-backend/internal/domains/otto/handlers"
+
+// OttoRegistry provides access to Otto domain handlers
 type OttoRegistry struct {
-	// Add necessary fields for the Otto domain
+	Handler *handlers.OttoHandler
 }
 
-func NewOttoRegistry() *OttoRegistry {
+// NewOttoRegistry creates a new Otto registry
+func NewOttoRegistry(handler *handlers.OttoHandler) *OttoRegistry {
 	return &OttoRegistry{
-		// Initialize necessary fields
+		Handler: handler,
 	}
 }

@@ -24,6 +24,7 @@ type InstagramHandler struct {
 	rateLimiter       services.RateLimitChecker
 	webhookService    services.InstagramWebhookService
 	mediaService      services.InstagramMediaService
+	insightsService   services.InstagramInsightsService
 	geminiService     services.GeminiService
 	instagramConfig   *config.InstagramConfig
 	riverService      *riverqueue.RiverService
@@ -41,6 +42,7 @@ func NewInstagramHandler(
 	rateLimiter services.RateLimitChecker,
 	webhookService services.InstagramWebhookService,
 	mediaService services.InstagramMediaService,
+	insightsService services.InstagramInsightsService,
 	geminiService services.GeminiService,
 	instagramConfig *config.InstagramConfig,
 	riverService *riverqueue.RiverService,
@@ -55,6 +57,7 @@ func NewInstagramHandler(
 		rateLimiter:     rateLimiter,
 		webhookService:  webhookService,
 		mediaService:    mediaService,
+		insightsService: insightsService,
 		geminiService:   geminiService,
 		instagramConfig: instagramConfig,
 		riverService:    riverService,

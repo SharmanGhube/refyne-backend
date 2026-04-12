@@ -111,6 +111,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	rateLimitChecker := services.NewRateLimitChecker(client2)
 	instagramWebhookService := services.NewInstagramWebhookService(instagramConfig)
 	instagramMediaService := services.NewInstagramMediaService(instagramConfig, instagramOAuthService, rateLimitChecker, client2)
+	instagramInsightsService := services.NewInstagramInsightsService(instagramConfig, rateLimitChecker)
 	geminiConfig, err := config2.NewGeminiConfig(logger)
 	if err != nil {
 		return nil, err
@@ -119,7 +120,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	instagramMediaRepository := repository.NewInstagramMediaRepository(db)
 	instagramInsightsRepository := repository.NewInstagramInsightsRepository(db)
 	instagramAIRepository := repository.NewInstagramAIRepository(db)
-	instagramHandler := handlers.NewInstagramHandler(instagramOAuthService, webhookDeduplicator, rateLimitChecker, instagramWebhookService, instagramMediaService, geminiService, instagramConfig, riverService, instagramAccountRepository, instagramMediaRepository, instagramInsightsRepository, instagramAIRepository)
+	instagramHandler := handlers.NewInstagramHandler(instagramOAuthService, webhookDeduplicator, rateLimitChecker, instagramWebhookService, instagramMediaService, instagramInsightsService, geminiService, instagramConfig, riverService, instagramAccountRepository, instagramMediaRepository, instagramInsightsRepository, instagramAIRepository)
 	instagramRegistry := instagram.NewInstagramRegistry(instagramHandler)
 	notificationRegistry := notification.NewNotificationRegistry()
 	ottoRegistry := otto.NewOttoRegistry()

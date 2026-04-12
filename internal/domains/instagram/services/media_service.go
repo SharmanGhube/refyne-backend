@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -18,7 +20,7 @@ import (
 // InstagramMediaService handles fetching and caching Instagram media
 type InstagramMediaService interface {
 	// FetchMedia fetches media from Instagram API with rate limiting
-	FetchMedia(ctx context.Context, accountID string, syncType string) ([]*models.InstagramMedia, error)
+	FetchMedia(ctx context.Context, accountID, accessToken, syncType string) ([]*models.InstagramMedia, error)
 
 	// GetCachedMedia retrieves cached media from Redis
 	GetCachedMedia(ctx context.Context, accountID string) ([]*models.InstagramMedia, error)
@@ -27,7 +29,7 @@ type InstagramMediaService interface {
 	CacheMedia(ctx context.Context, accountID string, media []*models.InstagramMedia) error
 
 	// FetchMediaInsights fetches engagement metrics for media
-	FetchMediaInsights(ctx context.Context, accountID, mediaID string) (*models.MediaInsights, error)
+	FetchMediaInsights(ctx context.Context, accountID, accessToken, mediaID string) (*models.MediaInsights, error)
 }
 
 type instagramMediaService struct {
@@ -84,7 +86,7 @@ type mediaItem struct {
 }
 
 // FetchMedia fetches media from Instagram API with rate limiting
-func (s *instagramMediaService) FetchMedia(ctx context.Context, accountID string, syncType string) ([]*models.InstagramMedia, error) {
+func (s *instagramMediaService) FetchMedia(ctx context.Context, accountID, accessToken, syncType string) ([]*models.InstagramMedia, error) {
 	// Check rate limit
 	canCall, _, err := s.rateLimiter.CanMakeCall(ctx, accountID)
 	if err != nil {
@@ -99,13 +101,74 @@ func (s *instagramMediaService) FetchMedia(ctx context.Context, accountID string
 		return nil, fmt.Errorf("rate limit reached")
 	}
 
-	// Get account to fetch access token
-	// Note: In real implementation, we would retrieve the account from repository
-	// For now, we'll return a placeholder error
-	s.logger.Info("Fetching media from Instagram",
-		zap.String("account_id", accountID),
-		zap.String("sync_type", syncType),
-	)
+	if accessToken == "" {
+		s.logger.Error("Access token is required to fetch media",
+			zap.String("account_id", accountID),
+		)
+		return nil, fmt.Errorf("access token is required")
+	}
+
+	// Build Instagram Graph API endpoint
+	apiURL := "https://graph.instagram.com/me/media"
+	fields := "id,caption,media_type,media_url,timestamp,like.limit(0).summary(true),comments.limit(0).summary(true),insights.metric(impressions,engagement)"
+
+	// Make API request
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		s.logger.Error("Failed to create request", zap.Error(err))
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("fields", fields)
+	q.Add("access_token", accessToken)
+	q.Add("limit", "25") // Paginated results
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Error("Failed to call Instagram API", zap.Error(err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Error("Instagram API error",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", string(body)),
+		)
+		return nil, fmt.Errorf("instagram api returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var apiResp mediaAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		s.logger.Error("Failed to decode response", zap.Error(err))
+		return nil, err
+	}
+
+	// Transform to our models
+	var media []*models.InstagramMedia
+	for _, item := range apiResp.Data {
+		m := &models.InstagramMedia{
+			AccountID:        accountID,
+			InstagramMediaID: item.ID,
+			Caption: sql.NullString{
+				String: item.Caption,
+				Valid:  item.Caption != "",
+			},
+			MediaType:    item.MediaType,
+			MediaURL:     item.MediaURL,
+			Permalink:    sql.NullString{String: item.Permalink, Valid: true},
+			PostedAt:     parseTimestamp(item.Timestamp),
+			LikeCount:    len(item.Like.Data),
+			CommentCount: len(item.Comments.Data),
+			SyncedAt:     time.Now(),
+		}
+		media = append(media, m)
+	}
 
 	// Record API call for rate limiting
 	if err := s.rateLimiter.RecordCall(ctx, accountID); err != nil {
@@ -113,16 +176,13 @@ func (s *instagramMediaService) FetchMedia(ctx context.Context, accountID string
 		return nil, err
 	}
 
-	// TODO: Implement actual media fetching
-	// 1. Decrypt access token from database
-	// 2. Call Instagram API based on sync_type:
-	//    - "new": GET /me/media?fields=id,caption,media_type,media_url,timestamp,like.limit(0),comments.limit(0)
-	//    - "full": Paginate through all media (use after/before cursors)
-	//    - "insights": GET /media/{id}/insights?metric=impressions,reach,engagement
-	// 3. Parse and transform response to InstagramMedia models
-	// 4. Return media list
+	s.logger.Info("Fetched media from Instagram",
+		zap.String("account_id", accountID),
+		zap.Int("count", len(media)),
+		zap.String("sync_type", syncType),
+	)
 
-	return nil, fmt.Errorf("media fetching not yet implemented")
+	return media, nil
 }
 
 // GetCachedMedia retrieves cached media from Redis
@@ -177,7 +237,7 @@ func (s *instagramMediaService) CacheMedia(ctx context.Context, accountID string
 }
 
 // FetchMediaInsights fetches engagement metrics for media
-func (s *instagramMediaService) FetchMediaInsights(ctx context.Context, accountID, mediaID string) (*models.MediaInsights, error) {
+func (s *instagramMediaService) FetchMediaInsights(ctx context.Context, accountID, accessToken, mediaID string) (*models.MediaInsights, error) {
 	// Check rate limit
 	canCall, _, err := s.rateLimiter.CanMakeCall(ctx, accountID)
 	if err != nil {
@@ -193,20 +253,112 @@ func (s *instagramMediaService) FetchMediaInsights(ctx context.Context, accountI
 		return nil, fmt.Errorf("rate limit reached")
 	}
 
+	if accessToken == "" {
+		s.logger.Error("Access token is required to fetch insights",
+			zap.String("account_id", accountID),
+		)
+		return nil, fmt.Errorf("access token is required")
+	}
+
+	// Build Instagram Graph API endpoint for insights
+	apiURL := fmt.Sprintf("https://graph.instagram.com/%s/insights", mediaID)
+	metrics := "impressions,reach,engagement,clicks,saves,video_views"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		s.logger.Error("Failed to create request", zap.Error(err))
+		return nil, err
+	}
+
+	q := req.URL.Query()
+	q.Add("metric", metrics)
+	q.Add("access_token", accessToken)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Error("Failed to call Instagram insights API", zap.Error(err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Warn("Instagram insights API returned non-OK status",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", string(body)),
+		)
+		// Return nil for insights if not available (some media types may not have insights)
+		return nil, nil
+	}
+
+	// Parse response
+	var insightsResp struct {
+		Data []struct {
+			Name  string `json:"name"`
+			Value int    `json:"value"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&insightsResp); err != nil {
+		s.logger.Error("Failed to decode insights response", zap.Error(err))
+		return nil, err
+	}
+
+	// Extract metrics into MediaInsights struct
+	insights := &models.MediaInsights{
+		MediaID:       mediaID,
+		AccountID:     accountID,
+		MetricDate:    time.Now(),
+		CollectedAt:   time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	// Parse metrics
+	for _, item := range insightsResp.Data {
+		switch item.Name {
+		case "impressions":
+			insights.Impressions = item.Value
+		case "reach":
+			insights.Reach = item.Value
+		case "engagement":
+			insights.Shares = item.Value // Using shares field for engagement
+		case "clicks":
+			insights.Clicks = item.Value
+		case "saves":
+			insights.Saves = item.Value
+		}
+	}
+
+	// Calculate engagement rate
+	if insights.Impressions > 0 {
+		engagementRate := float64(insights.Shares) / float64(insights.Impressions) * 100
+		insights.EngagementRate = engagementRate
+	}
+
 	// Record API call for rate limiting
 	if err := s.rateLimiter.RecordCall(ctx, accountID); err != nil {
 		s.logger.Error("Failed to record API call", zap.Error(err))
 		return nil, err
 	}
 
-	s.logger.Info("Fetching media insights",
+	s.logger.Info("Fetched media insights from Instagram",
 		zap.String("account_id", accountID),
 		zap.String("media_id", mediaID),
+		zap.Int("impressions", insights.Impressions),
+		zap.Int("reach", insights.Reach),
 	)
 
-	// TODO: Implement actual insights fetching from Instagram API
-	// GET /media/{mediaID}/insights?metric=impressions,reach,engagement,profile_views,likes,comments,saves
-	// Parse response and return MediaInsights struct
+	return insights, nil
+}
 
-	return nil, fmt.Errorf("media insights fetching not yet implemented")
+// Helper function to parse Instagram timestamp
+func parseTimestamp(timestamp string) time.Time {
+	t, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		// If parsing fails, return current time
+		return time.Now()
+	}
+	return t
 }

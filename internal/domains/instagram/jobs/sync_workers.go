@@ -113,8 +113,21 @@ func (w *SyncMediaWorker) Work(ctx context.Context, job *river.Job[SyncMediaArgs
 		w.logger.Warn("Failed to update sync status", zap.Error(err))
 	}
 
-	// Fetch media from Instagram API
-	media, err := w.mediaService.FetchMedia(ctx, job.Args.AccountID, job.Args.SyncType)
+	// Get account to retrieve access token
+	account := &models.InstagramAccount{}
+	accountQuery := "SELECT id, user_id, access_token FROM instagram_accounts WHERE id = $1 LIMIT 1"
+	err = w.db.QueryRowContext(ctx, accountQuery, job.Args.AccountID).Scan(&account.ID, &account.UserID, &account.AccessToken)
+	if err != nil {
+		w.logger.Error("Failed to retrieve account access token",
+			zap.Error(err),
+			zap.String("account_id", job.Args.AccountID),
+		)
+		w.db.ExecContext(ctx, "UPDATE instagram_accounts SET sync_status = $1, sync_error = $2 WHERE id = $3", "error", "Failed to retrieve access token", job.Args.AccountID)
+		return err
+	}
+
+	// Fetch media from Instagram API with access token
+	media, err := w.mediaService.FetchMedia(ctx, job.Args.AccountID, account.AccessToken, job.Args.SyncType)
 	if err != nil {
 		w.logger.Error("Failed to fetch media from Instagram",
 			zap.Error(err),

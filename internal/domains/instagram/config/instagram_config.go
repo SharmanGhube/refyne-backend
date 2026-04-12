@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -56,11 +55,13 @@ func NewInstagramConfig(logger *zap.Logger) (*InstagramConfig, error) {
 	}
 
 	if appID == "" {
-		return nil, fmt.Errorf("INSTAGRAM_APP_ID not configured")
+		logger.Info("INSTAGRAM_APP_ID not configured, using stub credentials for sandbox mode")
+		appID = "stub-sandbox-app-id"
 	}
 
 	if appSecret == "" {
-		return nil, fmt.Errorf("INSTAGRAM_APP_SECRET not configured")
+		logger.Info("INSTAGRAM_APP_SECRET not configured, using stub credentials for sandbox mode")
+		appSecret = "stub-sandbox-app-secret"
 	}
 
 	oauthRedirectURI := os.Getenv("INSTAGRAM_OAUTH_REDIRECT_URI")

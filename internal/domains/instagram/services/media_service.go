@@ -308,11 +308,11 @@ func (s *instagramMediaService) FetchMediaInsights(ctx context.Context, accountI
 
 	// Extract metrics into MediaInsights struct
 	insights := &models.MediaInsights{
-		MediaID:       mediaID,
-		AccountID:     accountID,
-		MetricDate:    time.Now(),
-		CollectedAt:   time.Now(),
-		UpdatedAt:     time.Now(),
+		MediaID:     mediaID,
+		AccountID:   accountID,
+		MetricDate:  time.Now(),
+		CollectedAt: time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	// Parse metrics

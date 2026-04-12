@@ -11,6 +11,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	auth "github.com/refynehq/refyne-backend/internal/domains/auth/routes"
 	instagram "github.com/refynehq/refyne-backend/internal/domains/instagram/routes"
+	otto "github.com/refynehq/refyne-backend/internal/domains/otto/routes"
 	subscription "github.com/refynehq/refyne-backend/internal/domains/subscription/routes"
 	user "github.com/refynehq/refyne-backend/internal/domains/user/routes"
 	workspace "github.com/refynehq/refyne-backend/internal/domains/workspace/routes"
@@ -103,6 +104,9 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 
 		// Instagram routes (OAuth, media, analytics, AI features)
 		instagram.SetupInstagramRoutes(apiRoutes, registry)
+
+		// Otto routes (AI assistant conversations)
+		otto.SetupOttoRoutes(apiRoutes, registry)
 
 		// Protected test route
 		protected := apiRoutes.Group("/protected")

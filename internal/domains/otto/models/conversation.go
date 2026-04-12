@@ -17,11 +17,11 @@ type OttoConversation struct {
 	Context     string         `db:"context" json:"context"` // JSON context (accounts, metrics, documents)
 
 	// Conversation state
-	Status    string    `db:"status" json:"status"`       // active, archived, deleted
-	IsBookmarked bool    `db:"is_bookmarked" json:"is_bookmarked"`
+	Status       string `db:"status" json:"status"` // active, archived, deleted
+	IsBookmarked bool   `db:"is_bookmarked" json:"is_bookmarked"`
 
 	// Metadata
-	MessageCount int       `db:"message_count" json:"message_count"`
+	MessageCount  int       `db:"message_count" json:"message_count"`
 	LastMessageAt time.Time `db:"last_message_at" json:"last_message_at"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
@@ -30,21 +30,21 @@ type OttoConversation struct {
 
 // OttoMessage represents a single message in a conversation
 type OttoMessage struct {
-	ID             string    `db:"id" json:"id"`
-	ConversationID string    `db:"conversation_id" json:"conversation_id"`
-	UserID         string    `db:"user_id" json:"user_id"`
+	ID             string `db:"id" json:"id"`
+	ConversationID string `db:"conversation_id" json:"conversation_id"`
+	UserID         string `db:"user_id" json:"user_id"`
 
 	// Message content
-	Role    string `db:"role" json:"role"`        // "user" or "assistant"
-	Content string `db:"content" json:"content"`  // Message text
+	Role    string `db:"role" json:"role"`       // "user" or "assistant"
+	Content string `db:"content" json:"content"` // Message text
 
 	// Metadata
-	TokensUsed int           `db:"tokens_used" json:"tokens_used"`
-	ModelUsed  string        `db:"model_used" json:"model_used"` // Which AI model responded
+	TokensUsed int            `db:"tokens_used" json:"tokens_used"`
+	ModelUsed  string         `db:"model_used" json:"model_used"` // Which AI model responded
 	Metadata   sql.NullString `db:"metadata" json:"metadata"`     // Additional context (JSON)
 
 	// Feedback
-	IsLiked    sql.NullBool  `db:"is_liked" json:"is_liked"`
+	IsLiked       sql.NullBool   `db:"is_liked" json:"is_liked"`
 	FeedbackNotes sql.NullString `db:"feedback_notes" json:"feedback_notes"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
@@ -65,8 +65,8 @@ type CreateOttoMessageInput struct {
 
 // UpdateOttoConversationInput is the request to update a conversation
 type UpdateOttoConversationInput struct {
-	Title       string `json:"title" binding:"max=255"`
-	Description string `json:"description" binding:"max=1000"`
+	Title        string `json:"title" binding:"max=255"`
+	Description  string `json:"description" binding:"max=1000"`
 	IsBookmarked bool   `json:"is_bookmarked"`
 }
 
@@ -98,11 +98,11 @@ type OttoMessageResponse struct {
 
 // ConversationContext represents the context data passed with a conversation
 type ConversationContext struct {
-	AccountID     string `json:"account_id,omitempty"`     // Instagram account
-	PlatformType  string `json:"platform_type,omitempty"`  // instagram, tiktok, etc
-	MetricsScope  string `json:"metrics_scope,omitempty"`  // last_7_days, last_30_days, all
-	IncludeMedia  bool   `json:"include_media,omitempty"`  // Include recent media in context
-	IncludeInsights bool  `json:"include_insights"`        // Include analytics insights
+	AccountID        string   `json:"account_id,omitempty"`        // Instagram account
+	PlatformType     string   `json:"platform_type,omitempty"`     // instagram, tiktok, etc
+	MetricsScope     string   `json:"metrics_scope,omitempty"`     // last_7_days, last_30_days, all
+	IncludeMedia     bool     `json:"include_media,omitempty"`     // Include recent media in context
+	IncludeInsights  bool     `json:"include_insights"`            // Include analytics insights
 	RelatedDocuments []string `json:"related_documents,omitempty"` // Document IDs for context
 }
 

@@ -28,19 +28,22 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/services"
 	"github.com/refynehq/refyne-backend/internal/domains/notification"
 	"github.com/refynehq/refyne-backend/internal/domains/otto"
+	handlers2 "github.com/refynehq/refyne-backend/internal/domains/otto/handlers"
+	repository2 "github.com/refynehq/refyne-backend/internal/domains/otto/repository"
+	services2 "github.com/refynehq/refyne-backend/internal/domains/otto/services"
 	"github.com/refynehq/refyne-backend/internal/domains/subscription"
 	config3 "github.com/refynehq/refyne-backend/internal/domains/subscription/config"
 	handler2 "github.com/refynehq/refyne-backend/internal/domains/subscription/handler"
-	repository3 "github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
-	services3 "github.com/refynehq/refyne-backend/internal/domains/subscription/services"
+	repository4 "github.com/refynehq/refyne-backend/internal/domains/subscription/repository"
+	services4 "github.com/refynehq/refyne-backend/internal/domains/subscription/services"
 	user4 "github.com/refynehq/refyne-backend/internal/domains/user"
 	"github.com/refynehq/refyne-backend/internal/domains/user/core/repository"
 	user3 "github.com/refynehq/refyne-backend/internal/domains/user/handler"
 	user2 "github.com/refynehq/refyne-backend/internal/domains/user/services"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace"
-	repository2 "github.com/refynehq/refyne-backend/internal/domains/workspace/core/repository"
+	repository3 "github.com/refynehq/refyne-backend/internal/domains/workspace/core/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace/handler"
-	services2 "github.com/refynehq/refyne-backend/internal/domains/workspace/services"
+	services3 "github.com/refynehq/refyne-backend/internal/domains/workspace/services"
 	"github.com/refynehq/refyne-backend/internal/shared/audit"
 	"github.com/refynehq/refyne-backend/internal/shared/device"
 	"github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
@@ -123,23 +126,27 @@ func InitializeApp() (*bootstrap.App, error) {
 	instagramHandler := handlers.NewInstagramHandler(instagramOAuthService, webhookDeduplicator, rateLimitChecker, instagramWebhookService, instagramMediaService, instagramInsightsService, geminiService, instagramConfig, riverService, instagramAccountRepository, instagramMediaRepository, instagramInsightsRepository, instagramAIRepository)
 	instagramRegistry := instagram.NewInstagramRegistry(instagramHandler)
 	notificationRegistry := notification.NewNotificationRegistry()
-	ottoRegistry := otto.NewOttoRegistry()
-	workspaceRepository := repository2.NewWorkspaceRepository(db)
-	workspaceMemberRepository := repository2.NewWorkspaceMemberRepository(db)
-	workspaceService := services2.NewWorkspaceService(workspaceRepository, workspaceMemberRepository)
-	memberService := services2.NewMemberService(workspaceRepository, workspaceMemberRepository, client)
+	ottoConversationRepository := repository2.NewOttoConversationRepository(db)
+	ottoMessageRepository := repository2.NewOttoMessageRepository(db)
+	ottoConversationManager := services2.NewConversationService(ottoConversationRepository, ottoMessageRepository)
+	ottoHandler := handlers2.NewOttoHandler(ottoConversationManager)
+	ottoRegistry := otto.NewOttoRegistry(ottoHandler)
+	workspaceRepository := repository3.NewWorkspaceRepository(db)
+	workspaceMemberRepository := repository3.NewWorkspaceMemberRepository(db)
+	workspaceService := services3.NewWorkspaceService(workspaceRepository, workspaceMemberRepository)
+	memberService := services3.NewMemberService(workspaceRepository, workspaceMemberRepository, client)
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, memberService)
 	workspaceRegistry := workspace.NewWorkspaceRegistry(workspaceHandler)
 	paddleConfig, err := config3.NewPaddleConfig(logger)
 	if err != nil {
 		return nil, err
 	}
-	paddleService, err := services3.NewPaddleService(paddleConfig)
+	paddleService, err := services4.NewPaddleService(paddleConfig)
 	if err != nil {
 		return nil, err
 	}
-	subscriptionRepository := repository3.NewSubscriptionRepository(db)
-	webhookService := services3.NewWebhookService(subscriptionRepository, logger)
+	subscriptionRepository := repository4.NewSubscriptionRepository(db)
+	webhookService := services4.NewWebhookService(subscriptionRepository, logger)
 	subscriptionHandler := handler2.NewSubscriptionHandler(paddleService, webhookService, subscriptionRepository)
 	subscriptionRegistry := subscription.NewSubscriptionRegistry(subscriptionHandler)
 	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, instagramRegistry, notificationRegistry, ottoRegistry, workspaceRegistry, subscriptionRegistry)

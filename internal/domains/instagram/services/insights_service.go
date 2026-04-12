@@ -48,8 +48,8 @@ func NewInstagramInsightsService(
 // insightsAPIResponse represents the response from Instagram insights endpoint
 type insightsAPIResponse struct {
 	Data []struct {
-		Name  string        `json:"name"`
-		Period string        `json:"period"`
+		Name   string `json:"name"`
+		Period string `json:"period"`
 		Values []struct {
 			Value int `json:"value"`
 		} `json:"values"`

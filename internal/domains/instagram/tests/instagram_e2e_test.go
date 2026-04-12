@@ -37,8 +37,8 @@ func TestListAccounts(t *testing.T) {
 			"status": "ok",
 			"data": []gin.H{
 				{
-					"id":        testAccountID,
-					"username":  "testuser",
+					"id":          testAccountID,
+					"username":    "testuser",
 					"sync_status": "idle",
 				},
 			},
@@ -79,11 +79,11 @@ func TestGetAccount(t *testing.T) {
 		c.JSON(200, gin.H{
 			"status": "ok",
 			"data": gin.H{
-				"id":               testAccountID,
-				"username":         "testuser",
-				"followers_count":  1000,
-				"biography":        "Test account",
-				"sync_status":      "idle",
+				"id":              testAccountID,
+				"username":        "testuser",
+				"followers_count": 1000,
+				"biography":       "Test account",
+				"sync_status":     "idle",
 			},
 		})
 	})
@@ -125,12 +125,12 @@ func TestGetMedia(t *testing.T) {
 			"status": "ok",
 			"data": []gin.H{
 				{
-					"id":            testMediaID,
-					"media_id":      "ig-media-123",
-					"media_type":    "PHOTO",
-					"like_count":    100,
-					"impressions":   1000,
-					"reach":         850,
+					"id":          testMediaID,
+					"media_id":    "ig-media-123",
+					"media_type":  "PHOTO",
+					"like_count":  100,
+					"impressions": 1000,
+					"reach":       850,
 				},
 			},
 		})
@@ -171,12 +171,12 @@ func TestGetMediaByID(t *testing.T) {
 		c.JSON(200, gin.H{
 			"status": "ok",
 			"data": gin.H{
-				"id":            testMediaID,
-				"media_id":      "ig-media-123",
-				"media_type":    "PHOTO",
-				"like_count":    100,
-				"impressions":   1000,
-				"caption":       "Test caption",
+				"id":          testMediaID,
+				"media_id":    "ig-media-123",
+				"media_type":  "PHOTO",
+				"like_count":  100,
+				"impressions": 1000,
+				"caption":     "Test caption",
 			},
 		})
 	})
@@ -267,10 +267,10 @@ func TestGetMediaAnalytics(t *testing.T) {
 				"account_id": accountID,
 				"insights": []gin.H{
 					{
-						"media_id":       testMediaID,
-						"metric_date":    time.Now().Format("2006-01-02"),
-						"impressions":    500,
-						"reach":          400,
+						"media_id":        testMediaID,
+						"metric_date":     time.Now().Format("2006-01-02"),
+						"impressions":     500,
+						"reach":           400,
 						"engagement_rate": 12.0,
 					},
 				},
@@ -317,9 +317,9 @@ func TestGetAnalyticsTrends(t *testing.T) {
 				"granularity": granularity,
 				"trends": []gin.H{
 					{
-						"period":         time.Now().Format("2006-01-02"),
-						"impressions":    int64(1000),
-						"reach":          int64(850),
+						"period":          time.Now().Format("2006-01-02"),
+						"impressions":     int64(1000),
+						"reach":           int64(850),
 						"engagement_rate": 8.5,
 					},
 				},
@@ -792,4 +792,3 @@ func TestGranularityValidation(t *testing.T) {
 	// With our default validation, invalid granularity should default to daily
 	assert.Equal(t, http.StatusOK, w.Code)
 }
-

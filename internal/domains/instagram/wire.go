@@ -32,6 +32,7 @@ var ProviderSet = wire.NewSet(
 
 	// Configuration
 	config.NewInstagramConfig,
+	config.NewGeminiConfig,
 
 	// Jobs
 	jobs.ProviderSet,

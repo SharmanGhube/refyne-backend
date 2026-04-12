@@ -1,9 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -26,17 +28,29 @@ type GeminiService interface {
 }
 
 type geminiService struct {
-	config     *config.InstagramConfig
-	httpClient *http.Client
-	logger     *zap.Logger
+	geminiConfig *config.GeminiConfig
+	httpClient   *http.Client
+	logger       *zap.Logger
 }
 
 // NewGeminiService creates a new Gemini AI service
-func NewGeminiService(cfg *config.InstagramConfig) GeminiService {
+func NewGeminiService(cfg *config.GeminiConfig) GeminiService {
+	if cfg == nil {
+		logger := logging.GetServiceLogger("GeminiService")
+		logger.Warn("Gemini config is nil, AI features will be disabled")
+		return &geminiService{
+			geminiConfig: nil,
+			httpClient: &http.Client{
+				Timeout: 30 * time.Second,
+			},
+			logger: logger,
+		}
+	}
+
 	return &geminiService{
-		config: cfg,
+		geminiConfig: cfg,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: time.Duration(cfg.TimeoutSeconds) * time.Second,
 		},
 		logger: logging.GetServiceLogger("GeminiService"),
 	}
@@ -171,9 +185,104 @@ Provide ONLY valid JSON for optimal posting strategy:
 
 // callGeminiAPI makes a request to the Gemini API
 func (s *geminiService) callGeminiAPI(ctx context.Context, prompt string) (string, error) {
-	// TODO: Implement actual Gemini API call
-	// For now, return placeholder
-	s.logger.Info("Gemini API call placeholder", zap.String("prompt_len", fmt.Sprintf("%d", len(prompt))))
+	if s.geminiConfig == nil || s.geminiConfig.APIKey == "" {
+		s.logger.Warn("Gemini API not configured")
+		return "", fmt.Errorf("gemini api key not configured")
+	}
 
-	return "{}", fmt.Errorf("gemini api integration not yet implemented")
+	// Google Generative AI API endpoint
+	url := fmt.Sprintf(
+		"https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+		s.geminiConfig.Model,
+		s.geminiConfig.APIKey,
+	)
+
+	// Build request payload
+	requestBody := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]interface{}{
+					{
+						"text": prompt,
+					},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"temperature":     s.geminiConfig.Temperature,
+			"topP":            s.geminiConfig.TopP,
+			"topK":            s.geminiConfig.TopK,
+			"maxOutputTokens": s.geminiConfig.MaxTokens,
+		},
+	}
+
+	// Marshal to JSON
+	reqJSON, err := json.Marshal(requestBody)
+	if err != nil {
+		s.logger.Error("Failed to marshal request", zap.Error(err))
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request with context
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(reqJSON))
+	if err != nil {
+		s.logger.Error("Failed to create request", zap.Error(err))
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Make HTTP call
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Error("Failed to call Gemini API", zap.Error(err))
+		return "", fmt.Errorf("failed to call gemini api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Error("Gemini API error",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", string(body)),
+		)
+		return "", fmt.Errorf("gemini api returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Parse response
+	var respData struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
+		s.logger.Error("Failed to decode response", zap.Error(err))
+		return "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Extract text from response
+	if len(respData.Candidates) == 0 {
+		s.logger.Error("No candidates in Gemini response")
+		return "", fmt.Errorf("no candidates in gemini response")
+	}
+
+	if len(respData.Candidates[0].Content.Parts) == 0 {
+		s.logger.Error("No parts in Gemini response")
+		return "", fmt.Errorf("no parts in gemini response")
+	}
+
+	responseText := respData.Candidates[0].Content.Parts[0].Text
+
+	s.logger.Debug("Gemini API call successful",
+		zap.Int("prompt_length", len(prompt)),
+		zap.Int("response_length", len(responseText)),
+	)
+
+	return responseText, nil
 }

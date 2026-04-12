@@ -111,7 +111,11 @@ func InitializeApp() (*bootstrap.App, error) {
 	rateLimitChecker := services.NewRateLimitChecker(client2)
 	instagramWebhookService := services.NewInstagramWebhookService(instagramConfig)
 	instagramMediaService := services.NewInstagramMediaService(instagramConfig, instagramOAuthService, rateLimitChecker, client2)
-	geminiService := services.NewGeminiService(instagramConfig)
+	geminiConfig, err := config2.NewGeminiConfig(logger)
+	if err != nil {
+		return nil, err
+	}
+	geminiService := services.NewGeminiService(geminiConfig)
 	instagramMediaRepository := repository.NewInstagramMediaRepository(db)
 	instagramInsightsRepository := repository.NewInstagramInsightsRepository(db)
 	instagramAIRepository := repository.NewInstagramAIRepository(db)

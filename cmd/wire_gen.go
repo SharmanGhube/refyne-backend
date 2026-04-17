@@ -129,7 +129,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	ottoConversationRepository := repository2.NewOttoConversationRepository(db)
 	ottoMessageRepository := repository2.NewOttoMessageRepository(db)
 	ottoConversationManager := services2.NewConversationService(ottoConversationRepository, ottoMessageRepository)
-	ottoHandler := handlers2.NewOttoHandler(ottoConversationManager)
+	ottoHandler := handlers2.NewOttoHandler(ottoConversationManager, ottoMessageRepository)
 	ottoRegistry := otto.NewOttoRegistry(ottoHandler)
 	workspaceRepository := repository3.NewWorkspaceRepository(db)
 	workspaceMemberRepository := repository3.NewWorkspaceMemberRepository(db)

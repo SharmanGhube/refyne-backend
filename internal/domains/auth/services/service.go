@@ -34,6 +34,9 @@ type AuthService interface {
 	SendVerificationEmail(c *gin.Context, userID, email, username string) *errors.AppError
 	VerifyAccount(c *gin.Context, token string) *errors.AppError
 	ResendVerificationEmail(c *gin.Context, email string) *errors.AppError
+
+	// User retrieval
+	GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError)
 }
 
 type AuthServiceImpl struct {

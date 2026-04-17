@@ -24,8 +24,7 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 	// Bind and validate the request body
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid registration request", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request data",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request data", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -40,12 +39,35 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("User registered successfully", zap.String("requestID", middlewares.GetRequestID(c)))
+	// Get the newly created user by email to return it
+	user, appErr := h.authService.GetUserByEmail(c, req.Email)
+	if appErr != nil {
+		h.logger.Error("Failed to fetch registered user", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
+		return
+	}
 
-	// Respond with success - user needs to verify email
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully. Please check your email to verify your account.",
-	})
+	h.logger.Info("User registered successfully", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", user.ID))
+
+	// Build response data with complete user information
+	responseData := gin.H{
+		"user_id":                   user.ID,
+		"email":                     user.Email,
+		"first_name":                user.FirstName,
+		"last_name":                 user.LastName,
+		"username":                  user.Username,
+		"is_verified":               user.IsVerified,
+		"is_active":                 user.IsActive,
+		"status":                    user.Status,
+		"onboarding_completed":      user.OnboardingCompleted,
+		"subscription_status":       user.SubscriptionStatus,
+		"subscription_tier":         user.SubscriptionTier,
+		"created_at":                user.CreatedAt,
+		"message":                   "User registered successfully. Please check your email to verify your account.",
+	}
+
+	// Send response using standardized success envelope
+	middlewares.RespondWithSuccess(c, http.StatusCreated, "User registered successfully", responseData)
 }
 
 type OTPRequest struct {
@@ -60,8 +82,7 @@ func (h *AuthHandlerImpl) RequestOTP(c *gin.Context) {
 	// Bind and validate the request body
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid OTP request", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request data",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request data", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -82,11 +103,11 @@ func (h *AuthHandlerImpl) RequestOTP(c *gin.Context) {
 	// Production-ready response (OTP sent via email only)
 	// Note: In production, OTP should NEVER be included in the response
 	// Users receive OTP via email only for security
-	c.JSON(http.StatusOK, gin.H{
+	responseData := gin.H{
+		"expires_in": 300, // 5 minutes in seconds (OTP validity period)
 		"message":    "OTP sent successfully to your email",
-		"expires_in": 900, // 15 minutes in seconds
-		"RequestID":  middlewares.GetRequestID(c),
-	})
+	}
+	middlewares.RespondWithSuccess(c, http.StatusOK, "OTP sent successfully", responseData)
 }
 
 type OTPVerifyRequest struct {
@@ -101,8 +122,7 @@ func (h *AuthHandlerImpl) VerifyOTP(c *gin.Context) {
 	// Bind and validate the request body
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid OTP verification request", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request data",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request data", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -132,13 +152,13 @@ func (h *AuthHandlerImpl) VerifyOTP(c *gin.Context) {
 		"is_verified": user.IsVerified,
 	}
 
-	// Respond with the JWT tokens
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "Login successful",
-		"user":      userResponse,
-		"TokenPair": tokenPair,
-		"RequestID": middlewares.GetRequestID(c),
-	})
+	// Respond with the JWT tokens using standardized success envelope
+	responseData := gin.H{
+		"user":       userResponse,
+		"token_pair": tokenPair,
+	}
+
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Login successful", responseData)
 }
 
 // RefreshToken handles token refresh requests
@@ -153,8 +173,7 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 	// Bind request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid refresh token request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -168,12 +187,12 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Success response
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "Token refreshed successfully",
-		"TokenPair": tokenPair,
-		"RequestID": middlewares.GetRequestID(c),
-	})
+	// Success response using standardized envelope
+	responseData := gin.H{
+		"token_pair": tokenPair,
+	}
+
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Token refreshed successfully", responseData)
 
 	h.logger.Info("Token refresh successful", zap.String("requestID", middlewares.GetRequestID(c)))
 }
@@ -190,8 +209,7 @@ func (h *AuthHandlerImpl) VerifyAccount(c *gin.Context) {
 	// Bind request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid verification request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -204,12 +222,12 @@ func (h *AuthHandlerImpl) VerifyAccount(c *gin.Context) {
 		return
 	}
 
-	// Success response
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "Account verified successfully",
-		"status":    "verified",
-		"RequestID": middlewares.GetRequestID(c),
-	})
+	// Success response using standardized envelope
+	responseData := gin.H{
+		"status": "verified",
+	}
+
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Account verified successfully", responseData)
 
 	h.logger.Info("Account verification successful", zap.String("requestID", middlewares.GetRequestID(c)))
 }
@@ -226,8 +244,7 @@ func (h *AuthHandlerImpl) ResendVerification(c *gin.Context) {
 	// Bind request
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid resend verification request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request format",
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
 			"details": err.Error(),
 		})
 		return
@@ -240,10 +257,12 @@ func (h *AuthHandlerImpl) ResendVerification(c *gin.Context) {
 	}
 
 	// Success response (always the same regardless of whether email exists)
-	c.JSON(http.StatusOK, gin.H{
-		"message":   "If an account exists with that email, a verification email has been sent.",
-		"RequestID": middlewares.GetRequestID(c),
-	})
+	// Using standardized success envelope
+	responseData := gin.H{
+		"message": "If an account exists with that email, a verification email has been sent.",
+	}
+
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Verification email sent", responseData)
 
 	h.logger.Info("Resend verification request processed", zap.String("requestID", middlewares.GetRequestID(c)))
 }

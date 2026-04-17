@@ -544,3 +544,14 @@ func (s *AuthServiceImpl) clearFailedAttempts(c *gin.Context, email string) {
 		s.logger.Error("Failed to clear failed attempts", zap.Error(err))
 	}
 }
+
+// GetUserByEmail retrieves a user by email address
+func (s *AuthServiceImpl) GetUserByEmail(c *gin.Context, email string) (*userModels.User, *errors.AppError) {
+	user, appErr := s.coreUserRepo.GetUserByEmail(c, email)
+	if appErr != nil {
+		s.logger.Error("Failed to get user by email", zap.String("email", email), zap.Error(appErr))
+		return nil, appErr
+	}
+
+	return user, nil
+}

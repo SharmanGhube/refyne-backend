@@ -2031,7 +2031,1013 @@ Frontend:
 
 ---
 
-## Error Handling & Validation
+### Instagram Integration Endpoints (18 endpoints)
+
+#### 1. Connect Instagram Account (OAuth)
+```
+POST /api/instagram/auth/connect
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request: {} (empty body)
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "OAuth connection initiated",
+  "data": {
+    "auth_url": "https://instagram.com/oauth/authorize?client_id=...",
+    "message": "Redirect to this URL to authorize with Instagram"
+  },
+  "request_id": "req_xyz",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+State Flow:
+1. Frontend clicks "Connect Instagram"
+2. Get auth_url from this endpoint
+3. Redirect user to auth_url (Instagram OAuth page)
+4. User authorizes Refyne app
+5. Instagram redirects to /api/instagram/auth/callback?code=...&state=...
+6. Backend automatically creates connection
+7. Frontend polls /api/instagram/accounts to verify connection
+
+Frontend:
+- Button: "Connect Instagram Account"
+- On click: window.location.href = auth_url
+```
+
+#### 2. OAuth Callback (Frontend handles redirect)
+```
+GET /api/instagram/auth/callback?code=AUTH_CODE&state=STATE
+(Automatic redirect from Instagram, no manual call)
+
+Backend:
+- Verifies code with Instagram API
+- Creates InstagramAccount record for user
+- Returns redirect to frontend dashboard
+
+Frontend:
+- After redirect completes, user sees success message
+- Account appears in "Connected Accounts" list
+```
+
+#### 3. Disconnect Instagram Account
+```
+POST /api/instagram/auth/disconnect
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "account_id": "instagram_account_id_123"
+}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Instagram account disconnected",
+  "data": {
+    "status": "disconnected",
+    "account_id": "instagram_account_id_123"
+  },
+  "request_id": "req_abc",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Error 404:
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Account not found"
+  }
+}
+
+Frontend:
+- Confirmation dialog: "Are you sure? Content won't sync anymore"
+- On confirm: POST disconnect
+- Remove account from list
+```
+
+#### 4. List Connected Instagram Accounts
+```
+GET /api/instagram/accounts
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Accounts retrieved successfully",
+  "data": {
+    "accounts": [
+      {
+        "id": "acc_123",
+        "instagram_user_id": "987654321",
+        "username": "john_doe",
+        "profile_picture_url": "https://...",
+        "biography": "Social media influencer",
+        "followers_count": 5000,
+        "connected_at": "2026-04-18T10:00:00Z",
+        "last_sync_at": "2026-04-18T10:15:00Z",
+        "sync_status": "idle",
+        "sync_error_message": null
+      }
+    ]
+  },
+  "request_id": "req_def",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Display in Settings → Connected Accounts
+- Show sync status (idle, syncing, error)
+- Show last sync timestamp
+- Disconnect button per account
+```
+
+#### 5. Get Single Account Details
+```
+GET /api/instagram/accounts/:id
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Account retrieved successfully",
+  "data": {
+    "id": "acc_123",
+    "instagram_user_id": "987654321",
+    "username": "john_doe",
+    "profile_picture_url": "https://...",
+    "biography": "Social media influencer",
+    "followers_count": 5000,
+    "connected_at": "2026-04-18T10:00:00Z",
+    "last_sync_at": "2026-04-18T10:15:00Z",
+    "sync_status": "idle",
+    "sync_error_message": null
+  },
+  "request_id": "req_ghi",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Show on account detail page
+- Display profile info, sync status
+```
+
+#### 6. Get Instagram Media (paginated)
+```
+GET /api/instagram/media?account_id=ACC_ID&limit=20&offset=0
+Authorization: Bearer {access_token}
+
+Query Parameters:
+- account_id: Account ID (required)
+- limit: 1-100, default 20
+- offset: 0-based offset for pagination
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Media retrieved successfully",
+  "data": {
+    "media": [
+      {
+        "id": "media_456",
+        "instagram_id": "18456789012345678",
+        "account_id": "acc_123",
+        "caption": "Beautiful sunset 🌅",
+        "media_type": "IMAGE",
+        "media_url": "https://instagram.com/p/ABC123/",
+        "thumbnail_url": "https://instagram.com/media/...",
+        "likes_count": 150,
+        "comments_count": 25,
+        "engagement_rate": 3.5,
+        "posted_at": "2026-04-18T08:00:00Z",
+        "synced_at": "2026-04-18T08:15:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 250,
+      "limit": 20,
+      "offset": 0,
+      "has_more": true
+    }
+  },
+  "request_id": "req_jkl",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Display in Content Library/Gallery
+- Use offset/limit for infinite scroll
+- Show engagement metrics (likes, comments)
+```
+
+#### 7. Get Single Media Details
+```
+GET /api/instagram/media/:id
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Media retrieved successfully",
+  "data": {
+    "id": "media_456",
+    "instagram_id": "18456789012345678",
+    "account_id": "acc_123",
+    "caption": "Beautiful sunset 🌅",
+    "media_type": "IMAGE",
+    "media_url": "https://instagram.com/p/ABC123/",
+    "likes_count": 150,
+    "comments_count": 25,
+    "engagement_rate": 3.5,
+    "posted_at": "2026-04-18T08:00:00Z"
+  },
+  "request_id": "req_mno",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Click on media in gallery → Show details page
+```
+
+#### 8. Get Media AI Recommendations (Pro Only)
+```
+GET /api/instagram/media/:id/ai
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "AI recommendations generated",
+  "data": {
+    "media_id": "media_456",
+    "suggestions": {
+      "caption_optimization": "Try adding a call-to-action at the end",
+      "hashtag_recommendations": ["#sunset", "#nature", "#instagram", "#travel"],
+      "best_posting_time": "Tuesday 6-7 PM",
+      "engagement_forecast": "2-3x better engagement with optimizations"
+    }
+  },
+  "request_id": "req_pqr",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Feature Gate: Pro Only
+Frontend:
+- Show in media detail page
+- Display within <ProFeatureGate> component
+```
+
+#### 9. Get Account Analytics
+```
+GET /api/instagram/analytics?account_id=ACC_ID&period=7d
+Authorization: Bearer {access_token}
+
+Query Parameters:
+- account_id: Account ID (required)
+- period: 7d, 30d, 90d, 365d (default 30d)
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Analytics retrieved successfully",
+  "data": {
+    "account_id": "acc_123",
+    "period": "30d",
+    "followers_gained": 250,
+    "followers_lost": 10,
+    "engagement_rate": 4.2,
+    "reach": 15000,
+    "impressions": 25000,
+    "profile_visits": 500,
+    "website_clicks": 45,
+    "growth_trend": 2.5
+  },
+  "request_id": "req_stu",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Display in Analytics Dashboard
+- Show graphs/charts with metrics
+```
+
+#### 10. Get Media Analytics
+```
+GET /api/instagram/analytics/media?account_id=ACC_ID&limit=10
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Media analytics retrieved",
+  "data": {
+    "top_media": [
+      {
+        "id": "media_456",
+        "caption": "Beautiful sunset...",
+        "likes": 500,
+        "comments": 75,
+        "engagement_rate": 6.5,
+        "reach": 8000,
+        "impressions": 10000
+      }
+    ]
+  },
+  "request_id": "req_vwx",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Show top performing posts
+- Compare metrics across posts
+```
+
+#### 11. Get Analytics Trends
+```
+GET /api/instagram/analytics/trends?account_id=ACC_ID
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Trends retrieved successfully",
+  "data": {
+    "posting_frequency": "3x per week",
+    "best_posting_times": ["Wed 2-3 PM", "Sat 8-9 AM"],
+    "top_hashtags": ["#instagram", "#photography", "#nature"],
+    "top_content_types": ["Carousel", "Reel"],
+    "audience_demographics": {
+      "top_locations": ["USA", "UK", "Canada"],
+      "age_groups": {"18-24": 35, "25-34": 40, "35+": 25},
+      "gender": {"Male": 45, "Female": 55}
+    }
+  },
+  "request_id": "req_yza",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Display in Analytics Trends page
+- Show best times to post
+- Show audience breakdown
+```
+
+#### 12. Generate Caption Suggestions (Pro Only)
+```
+POST /api/instagram/ai/caption-suggest
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "media_id": "media_456",
+  "tone": "professional",  /* professional, casual, fun, inspirational */
+  "include_call_to_action": true,
+  "max_length": 2200
+}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Caption suggestions generated",
+  "data": {
+    "suggestions": [
+      {
+        "caption": "Experiencing the magic of nature 🌅✨ Every moment counts when you're surrounded by beauty. What's your favorite nature moment?\n\n#sunset #nature #photography #blessed #explore",
+        "engagement_score": 8.5
+      },
+      {
+        "caption": "Golden hour magic ✨ Nature never ceases to amaze us. Share your favorite sunset photo in the comments! 👇\n\n#nature #sunset #beautiful #photography #moments",
+        "engagement_score": 8.2
+      }
+    ]
+  },
+  "request_id": "req_bcd",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Feature Gate: Pro Only
+Frontend:
+- Show in content creation/editing flow
+- Display within <ProFeatureGate> component
+- Allow user to copy/edit suggestions
+```
+
+#### 13. Generate Hashtag Suggestions (Pro Only)
+```
+POST /api/instagram/ai/hashtag-suggest
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "media_id": "media_456",
+  "max_hashtags": 20,
+  "focus_area": "general"  /* general, trending, niche */
+}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Hashtag suggestions generated",
+  "data": {
+    "hashtags": [
+      {"tag": "sunset", "popularity": "high", "volume": 250000},
+      {"tag": "nature", "popularity": "high", "volume": 500000},
+      {"tag": "photography", "popularity": "medium", "volume": 180000},
+      {"tag": "beautifulmoment", "popularity": "low", "volume": 2500}
+    ]
+  },
+  "request_id": "req_efg",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Feature Gate: Pro Only
+Frontend:
+- Suggest hashtags during post creation
+- Show popularity/volume metrics
+```
+
+#### 14. Get Optimal Posting Strategy (Pro Only)
+```
+GET /api/instagram/ai/posting-time?account_id=ACC_ID
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Posting strategy generated",
+  "data": {
+    "best_times": [
+      {"day": "Monday", "hour": 18, "value": 8.5},
+      {"day": "Wednesday", "hour": 14, "value": 8.8},
+      {"day": "Friday", "hour": 19, "value": 9.2}
+    ],
+    "frequency_recommendation": "3-4 posts per week",
+    "content_mix_suggestion": {
+      "reels": "40%",
+      "carousel": "30%",
+      "single_image": "30%"
+    },
+    "engagement_prediction": "Following this schedule could increase engagement by 35%"
+  },
+  "request_id": "req_hij",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Feature Gate: Pro Only
+Frontend:
+- Display optimal posting times
+- Suggest when to schedule next post
+```
+
+#### 15. Manual Media Sync
+```
+POST /api/instagram/media/sync
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "account_id": "acc_123"
+}
+
+Response 202 Accepted:
+{
+  "success": true,
+  "message": "Sync started in background",
+  "data": {
+    "status": "syncing",
+    "account_id": "acc_123"
+  },
+  "request_id": "req_klm",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Sync Flow:
+- POST triggers background job
+- Frontend shows "Syncing..." spinner
+- Backend pulls latest media from Instagram
+- Updates InstagramMedia table
+- User can see new posts in gallery after sync completes (~30s)
+
+Frontend:
+- "Refresh" button in Content Library
+- On click: POST sync → Show spinner
+- Poll /api/instagram/accounts to check sync_status
+- Update gallery when sync_status changes to "idle"
+```
+
+#### 16. Manual Media Analysis
+```
+POST /api/instagram/media/analyze
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "account_id": "acc_123",
+  "media_ids": ["media_456", "media_789"]  /* optional, if not provided analyzes all */
+}
+
+Response 202 Accepted:
+{
+  "success": true,
+  "message": "Analysis started in background",
+  "data": {
+    "status": "analyzing",
+    "account_id": "acc_123",
+    "media_count": 2
+  },
+  "request_id": "req_nop",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Analysis includes:
+- AI caption suggestions
+- Hashtag recommendations
+- Performance predictions
+- Optimization tips
+
+Frontend:
+- "Analyze All Posts" button
+- Shows progress spinner
+- After analysis, show suggestions per post
+```
+
+#### 17. Webhook Receiver (Backend Only)
+```
+GET /api/instagram/webhooks (Instagram token validation)
+POST /api/instagram/webhooks (Real-time event)
+
+Backend handles:
+- Media posted
+- Media liked/commented
+- Follower changes
+- DM received
+
+Frontend:
+- No direct interaction
+- Backend updates automatically
+- Frontend can poll to get latest updates
+```
+
+#### 18. Manual Operations Summary
+```
+For FREE users:
+- Connect/disconnect accounts
+- View media and analytics
+- 5 AI requests per month
+
+For PRO users:
+- All FREE features
+- Unlimited AI requests
+- Optimal posting times
+- Caption/hashtag suggestions
+- Performance predictions
+
+Feature Gates:
+- /media/:id/ai → ProFeatureGate
+- /ai/caption-suggest → ProFeatureGate
+- /ai/hashtag-suggest → ProFeatureGate
+- /ai/posting-time → ProFeatureGate
+```
+
+---
+
+### Otto AI Assistant Endpoints (11 endpoints)
+
+#### 1. Create Conversation
+```
+POST /api/otto/conversations
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "title": "Q2 Marketing Strategy",
+  "description": "Discussing campaign strategy for Q2 2026",
+  "context": {
+    "workspace_id": "ws_123",
+    "account_ids": ["acc_123", "acc_456"],
+    "date_range": "2026-04-01 to 2026-06-30",
+    "focus": "engagement_optimization"
+  }
+}
+
+Context: Provides AI with background data (accounts, dates, goals)
+
+Response 201 Created:
+{
+  "success": true,
+  "message": "Conversation created successfully",
+  "data": {
+    "id": "conv_789",
+    "workspace_id": "ws_123",
+    "title": "Q2 Marketing Strategy",
+    "description": "Discussing campaign strategy for Q2 2026",
+    "status": "active",
+    "is_bookmarked": false,
+    "message_count": 0,
+    "last_message_at": null,
+    "created_at": "2026-04-18T10:30:00Z",
+    "updated_at": "2026-04-18T10:30:00Z"
+  },
+  "request_id": "req_qrs",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Feature: Available to all tiers, limited to 5/month for FREE users
+
+Frontend:
+- "New Conversation" button
+- Show title, description form
+- Pre-fill with account context
+```
+
+#### 2. List Conversations
+```
+GET /api/otto/conversations?limit=20&offset=0
+Authorization: Bearer {access_token}
+
+Query Parameters:
+- limit: 1-50, default 20
+- offset: 0-based pagination
+- status: active, archived (optional filter)
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversations retrieved successfully",
+  "data": {
+    "conversations": [
+      {
+        "id": "conv_789",
+        "workspace_id": "ws_123",
+        "title": "Q2 Marketing Strategy",
+        "description": "Discussing campaign strategy for Q2 2026",
+        "status": "active",
+        "is_bookmarked": true,
+        "message_count": 12,
+        "last_message_at": "2026-04-18T09:45:00Z",
+        "created_at": "2026-04-18T08:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 45,
+      "limit": 20,
+      "offset": 0,
+      "has_more": true
+    }
+  },
+  "request_id": "req_tuv",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Display conversation list in sidebar
+- Show bookmarked conversations at top
+- Use pagination for infinite scroll
+```
+
+#### 3. Get Conversation Details
+```
+GET /api/otto/conversations/:id
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversation retrieved successfully",
+  "data": {
+    "id": "conv_789",
+    "workspace_id": "ws_123",
+    "title": "Q2 Marketing Strategy",
+    "description": "Discussing campaign strategy for Q2 2026",
+    "status": "active",
+    "is_bookmarked": true,
+    "message_count": 12,
+    "last_message_at": "2026-04-18T09:45:00Z",
+    "created_at": "2026-04-18T08:00:00Z",
+    "updated_at": "2026-04-18T09:45:00Z"
+  },
+  "request_id": "req_wxy",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Show when opening conversation details
+```
+
+#### 4. Update Conversation
+```
+PUT /api/otto/conversations/:id
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "title": "Q2 & Q3 Marketing Strategy",
+  "description": "Updated strategy for Q2 and Q3",
+  "is_bookmarked": true
+}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversation updated successfully",
+  "data": {
+    "id": "conv_789",
+    "title": "Q2 & Q3 Marketing Strategy",
+    "description": "Updated strategy for Q2 and Q3",
+    "is_bookmarked": true,
+    "updated_at": "2026-04-18T10:31:00Z"
+  },
+  "request_id": "req_zab",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Edit conversation title/description
+- Click bookmark star to toggle is_bookmarked
+```
+
+#### 5. Archive Conversation
+```
+POST /api/otto/conversations/:id/archive
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request: {} (empty body)
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversation archived successfully",
+  "data": {
+    "id": "conv_789",
+    "status": "archived"
+  },
+  "request_id": "req_cde",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- "Archive" button in conversation menu
+- Removes from active list
+- Can restore with unarchive endpoint (optional)
+```
+
+#### 6. Bookmark Conversation
+```
+POST /api/otto/conversations/:id/bookmark
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request: {} (empty body)
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversation bookmarked successfully",
+  "data": {
+    "id": "conv_789",
+    "is_bookmarked": true
+  },
+  "request_id": "req_fgh",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Star icon to toggle bookmark
+- Show bookmarked conversations first
+```
+
+#### 7. Delete Conversation
+```
+DELETE /api/otto/conversations/:id
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Conversation deleted successfully",
+  "data": {
+    "id": "conv_789",
+    "status": "deleted"
+  },
+  "request_id": "req_ijk",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- "Delete" button with confirmation dialog
+- "Are you sure? This cannot be undone."
+```
+
+#### 8. Send Message (User to Otto)
+```
+POST /api/otto/conversations/:id/messages
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "content": "What are the top 3 hashtags I should focus on for Q2?"
+}
+
+Max length: 5000 characters
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Message sent successfully",
+  "data": {
+    "messages": [
+      {
+        "id": "msg_123",
+        "conversation_id": "conv_789",
+        "role": "user",
+        "content": "What are the top 3 hashtags I should focus on for Q2?",
+        "tokens_used": 15,
+        "model_used": "user_input",
+        "created_at": "2026-04-18T10:31:00Z"
+      },
+      {
+        "id": "msg_124",
+        "conversation_id": "conv_789",
+        "role": "assistant",
+        "content": "Based on your Q2 performance data, I recommend focusing on: 1) #marketing (high volume, good engagement), 2) #springcampaign (trending), 3) #engagement2026 (growing trend). Here's why...",
+        "tokens_used": 156,
+        "model_used": "claude-opus-4-6",
+        "is_liked": null,
+        "created_at": "2026-04-18T10:31:02Z"
+      }
+    ]
+  },
+  "request_id": "req_lmn",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Flow:
+1. User types message → POST
+2. Backend sends to Claude API
+3. Claude responds
+4. Response saved as OttoMessage with role="assistant"
+5. Both messages returned in response
+6. Frontend renders both immediately
+
+Frontend:
+- Chat input at bottom
+- Messages stream in conversation thread
+- Show "Otto is thinking..." while awaiting response
+- AI request counter (FREE: 5/month consumed)
+```
+
+#### 9. Get Messages in Conversation
+```
+GET /api/otto/conversations/:id/messages?limit=50&offset=0
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Messages retrieved successfully",
+  "data": {
+    "messages": [
+      {
+        "id": "msg_123",
+        "conversation_id": "conv_789",
+        "role": "user",
+        "content": "What insights can you give about my audience?",
+        "created_at": "2026-04-18T10:30:00Z"
+      },
+      {
+        "id": "msg_124",
+        "conversation_id": "conv_789",
+        "role": "assistant",
+        "content": "Based on your analytics...",
+        "created_at": "2026-04-18T10:30:02Z"
+      }
+    ],
+    "pagination": {
+      "total": 24,
+      "limit": 50
+    }
+  },
+  "request_id": "req_opq",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Load message history when opening conversation
+- Show oldest messages first, newest at bottom
+```
+
+#### 10. Add Message Feedback
+```
+POST /api/otto/messages/:id/feedback
+Authorization: Bearer {access_token}
+Content-Type: application/json
+
+Request:
+{
+  "is_liked": true,
+  "feedback_notes": "Very helpful suggestion, exactly what I needed!"
+}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Feedback recorded successfully",
+  "data": {
+    "message_id": "msg_124",
+    "is_liked": true,
+    "feedback_notes": "Very helpful suggestion..."
+  },
+  "request_id": "req_rst",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Thumbs up/down buttons below each assistant message
+- Optional note box: "What could be better?"
+- Send feedback to improve AI responses
+```
+
+#### 11. Get Conversation Context
+```
+GET /api/otto/conversations/:id/context
+Authorization: Bearer {access_token}
+
+Response 200 OK:
+{
+  "success": true,
+  "message": "Context retrieved successfully",
+  "data": {
+    "conversation_id": "conv_789",
+    "context": {
+      "workspace_id": "ws_123",
+      "account_ids": ["acc_123", "acc_456"],
+      "date_range": "2026-04-01 to 2026-06-30",
+      "focus": "engagement_optimization",
+      "recent_metrics": {
+        "total_posts": 45,
+        "avg_engagement": 4.2,
+        "follower_growth": 2.5
+      }
+    }
+  },
+  "request_id": "req_uvw",
+  "timestamp": "2026-04-18T10:30:45Z"
+}
+
+Frontend:
+- Show context used by Otto for responses
+- Display in conversation sidebar
+- Helps user understand AI's perspective
+```
+
+---
+
+### Otto AI Request Counter
+
+```typescript
+// Track FREE tier limit
+const AI_REQUEST_LIMITS = {
+  FREE: 5,     // per month
+  PRO: Infinity // unlimited
+};
+
+// Implementation
+export function useOttoAIRequests() {
+  const { data: subscription } = useSubscription();
+  const { data: usage } = useQuery({
+    queryKey: ['otto', 'usage', currentMonth()],
+    queryFn: async () => {
+      const response = await api.get('/otto/messages/usage');
+      return response.data.data;
+    },
+  });
+
+  return {
+    used: usage?.count || 0,
+    limit: subscription?.tier === 'pro' ? Infinity : 5,
+    remaining: Math.max(0, (subscription?.tier === 'pro' ? Infinity : 5) - (usage?.count || 0)),
+  };
+}
+
+Frontend Chat Component:
+- Show "X requests remaining" for FREE users
+- Disable input when limit reached
+- Show "Upgrade to Pro" button
+```
+
+---
 
 ### Standard Error Codes & HTTP Status
 

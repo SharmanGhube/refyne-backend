@@ -3545,25 +3545,49 @@ export function SubscriptionStatus() {
 
 ## Environment Configuration
 
+### Active Deployments
+
+```
+DEVELOPMENT (Local):
+├─ Backend: http://localhost:8080
+├─ Frontend: http://localhost:3000
+└─ Database: PostgreSQL on localhost
+
+PRODUCTION (Railway + Vercel):
+├─ Backend: https://refyne-backend-production.up.railway.app ⭐ LIVE
+├─ Frontend: https://refyne.vercel.app ⭐ LIVE
+└─ Database: Railway PostgreSQL
+```
+
 ### Next.js Environment Setup
 
 ```bash
-# .env.local (Development)
+# .env.local (Development - Local backend)
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_APP_NAME=Refyne
+NEXT_PUBLIC_APP_NAME=Refyne (Dev)
 NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-key
 NEXT_PUBLIC_POSTHOG_KEY=your-posthog-key
 
-# .env.staging (Staging)
-NEXT_PUBLIC_API_URL=https://api-staging.refyne.app
+# .env.staging (Staging - Could point to staging backend)
+NEXT_PUBLIC_API_URL=https://refyne-backend-staging.up.railway.app
 NEXT_PUBLIC_APP_NAME=Refyne (Staging)
 NEXT_PUBLIC_ANALYTICS_ID=staging_key
 
-# .env.production (Production - Vercel)
-NEXT_PUBLIC_API_URL=https://api.refyne.app
+# .env.production (Production - Railway Backend)
+NEXT_PUBLIC_API_URL=https://refyne-backend-production.up.railway.app
 NEXT_PUBLIC_APP_NAME=Refyne
 NEXT_PUBLIC_SENTRY_DSN=https://production-sentry-key
 NEXT_PUBLIC_POSTHOG_KEY=production-posthog-key
+```
+
+**How to use:**
+```bash
+# Development (uses .env.local)
+npm run dev
+
+# Build for production (uses .env.production)
+npm run build
+npm start
 ```
 
 **Important Notes:**
@@ -3577,20 +3601,115 @@ NEXT_PUBLIC_POSTHOG_KEY=production-posthog-key
 ```
 1. Connect GitHub repository to Vercel
 2. Set environment variables in Vercel dashboard:
-   - NEXT_PUBLIC_API_URL=https://api.refyne.app
-   - Other NEXT_PUBLIC_* variables
+   NEXT_PUBLIC_API_URL=https://refyne-backend-production.up.railway.app
+   NEXT_PUBLIC_SENTRY_DSN=xxxx
+   NEXT_PUBLIC_POSTHOG_KEY=xxxx
 3. Set Node.js version: 18.x or higher
 4. Build command: next build
 5. Output directory: .next
 6. Install command: npm ci (or yarn install)
 
 Environment Behavior:
-- development: Uses .env.local
-- preview: Uses .env.production (for branch previews)
-- production: Uses .env.production (for main branch)
+- development (local): Uses .env.local → points to localhost:8080
+- preview (Vercel PR): Uses .env.production → points to Railway production
+- production (Vercel main): Uses .env.production → points to Railway production
 ```
 
-### CORS Configuration
+### Railway Backend URL Details
+
+```
+Production Backend URL: https://refyne-backend-production.up.railway.app
+
+API Health Check:
+- GET https://refyne-backend-production.up.railway.app/health
+
+All API routes use this base URL:
+- POST https://refyne-backend-production.up.railway.app/api/auth/login
+- GET https://refyne-backend-production.up.railway.app/api/user/profile
+- POST https://refyne-backend-production.up.railway.app/api/workspaces
+- GET https://refyne-backend-production.up.railway.app/api/instagram/accounts
+- POST https://refyne-backend-production.up.railway.app/api/otto/conversations
+- etc.
+
+CORS Allowed Origins:
+- http://localhost:3000 (development)
+- http://localhost:3001 (development)
+- https://refyne.vercel.app (production)
+- https://*.vercel.app (all Vercel preview deployments)
+```
+
+### Testing the Connection
+
+```bash
+# Test if Railway backend is alive
+curl https://refyne-backend-production.up.railway.app/health
+
+Expected response:
+{
+  "success": true,
+  "message": "Service is healthy",
+  "data": {
+    "status": "ok",
+    "version": "1.0.0"
+  }
+}
+
+# Test with auth (if you have a token)
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://refyne-backend-production.up.railway.app/api/user/profile
+```
+
+### Frontend API Configuration (Complete)
+
+```typescript
+// lib/api.ts
+import axios from 'axios';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API_URL) {
+  console.error('❌ NEXT_PUBLIC_API_URL is not set!');
+  console.error('Development: should be http://localhost:8080');
+  console.error('Production: should be https://refyne-backend-production.up.railway.app');
+}
+
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,  // Important: sends httpOnly cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor for auth token
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 Unauthorized (token expired)
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token expired, auto-refresh
+      const newToken = await refreshToken();
+      if (newToken) {
+        // Retry original request
+        return api.request(error.config);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+---
 
 **Backend (Railway):**
 ```go

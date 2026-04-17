@@ -34,10 +34,7 @@ func (h *AuthHandlerImpl) ForgotPassword(c *gin.Context) {
 			zap.String("requestID", middlewares.GetRequestID(c)),
 			zap.Error(err),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Invalid request body. Email is required.",
-		})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body. Email is required.", nil)
 		return
 	}
 
@@ -52,8 +49,7 @@ func (h *AuthHandlerImpl) ForgotPassword(c *gin.Context) {
 	}
 
 	// Always return success to prevent email enumeration
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Password reset email sent", gin.H{
 		"message": "If the email exists, a password reset link has been sent",
 	})
 }
@@ -68,10 +64,7 @@ func (h *AuthHandlerImpl) ResetPassword(c *gin.Context) {
 			zap.String("requestID", middlewares.GetRequestID(c)),
 			zap.Error(err),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Invalid request body. Token and new password are required.",
-		})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body. Token and new password are required.", nil)
 		return
 	}
 
@@ -85,9 +78,8 @@ func (h *AuthHandlerImpl) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Password has been reset successfully",
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Password reset successfully", gin.H{
+		"status": "password_reset",
 	})
 }
 
@@ -101,10 +93,7 @@ func (h *AuthHandlerImpl) ValidateResetToken(c *gin.Context) {
 			zap.String("requestID", middlewares.GetRequestID(c)),
 			zap.Error(err),
 		)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   "Invalid request body. Token is required.",
-		})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request body. Token is required.", nil)
 		return
 	}
 
@@ -119,11 +108,7 @@ func (h *AuthHandlerImpl) ValidateResetToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Token is valid",
-		"data": gin.H{
-			"user_id": *userID,
-		},
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Token is valid", gin.H{
+		"user_id": *userID,
 	})
 }

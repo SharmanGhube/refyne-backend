@@ -41,7 +41,7 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 	// Extract user from JWT
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
@@ -56,8 +56,7 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 				zap.String("user_id", userID),
 				zap.Error(err),
 			)
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":   "Invalid request format",
+			middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
 				"details": err.Error(),
 			})
 			return
@@ -74,7 +73,7 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 			zap.String("user_id", userID),
 			zap.String("tier", tier),
 		)
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
@@ -88,14 +87,14 @@ func (h *SubscriptionHandlerImpl) CreateCheckout(c *gin.Context) {
 		zap.String("tier", tier),
 	)
 
-	c.JSON(http.StatusOK, response)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Checkout URL generated successfully", response)
 }
 
 // GetSubscriptionStatus returns user's subscription details
 func (h *SubscriptionHandlerImpl) GetSubscriptionStatus(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
@@ -105,7 +104,7 @@ func (h *SubscriptionHandlerImpl) GetSubscriptionStatus(c *gin.Context) {
 		h.logger.Error("Failed to get subscription status",
 			zap.String("user_id", userID),
 		)
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
@@ -124,35 +123,33 @@ func (h *SubscriptionHandlerImpl) GetSubscriptionStatus(c *gin.Context) {
 		ManagementPortalURL: portalURL,
 	}
 
-	c.JSON(http.StatusOK, response)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Subscription status retrieved successfully", response)
 }
 
 // GetCustomerPortal generates customer portal URL
 func (h *SubscriptionHandlerImpl) GetCustomerPortal(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	// Get user's Paddle customer ID
 	_, _, _, customerID, _, appErr := h.subscriptionRepo.GetUserSubscriptionStatus(c, userID)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	if customerID == nil || *customerID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "No active subscription found",
-		})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "NO_SUBSCRIPTION", "No active subscription found", nil)
 		return
 	}
 
 	// Generate portal URL
 	portalURL, appErr := h.paddleService.GetCustomerPortalURL(c, *customerID)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
@@ -160,7 +157,7 @@ func (h *SubscriptionHandlerImpl) GetCustomerPortal(c *gin.Context) {
 		PortalURL: portalURL,
 	}
 
-	c.JSON(http.StatusOK, response)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Customer portal URL generated successfully", response)
 }
 
 // HandleWebhook processes Paddle webhook events
@@ -169,7 +166,7 @@ func (h *SubscriptionHandlerImpl) HandleWebhook(c *gin.Context) {
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		h.logger.Error("Failed to read webhook body", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body", nil)
 		return
 	}
 
@@ -179,7 +176,7 @@ func (h *SubscriptionHandlerImpl) HandleWebhook(c *gin.Context) {
 		h.logger.Warn("Invalid webhook signature",
 			zap.String("signature", signature),
 		)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid signature"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "INVALID_SIGNATURE", "Invalid signature", nil)
 		return
 	}
 
@@ -187,7 +184,7 @@ func (h *SubscriptionHandlerImpl) HandleWebhook(c *gin.Context) {
 	var event models.PaddleWebhookEvent
 	if err := c.ShouldBindJSON(&event); err != nil {
 		h.logger.Error("Failed to parse webhook event", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook format"})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "INVALID_FORMAT", "Invalid webhook format", nil)
 		return
 	}
 
@@ -203,13 +200,12 @@ func (h *SubscriptionHandlerImpl) HandleWebhook(c *gin.Context) {
 			zap.String("event_id", event.EventID),
 			zap.String("event_type", event.EventType),
 		)
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	// Return 200 to acknowledge webhook
-	c.JSON(http.StatusOK, gin.H{
-		"status":   "success",
+	// Return 200 to acknowledge webhook with standardized envelope
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Webhook processed successfully", gin.H{
 		"event_id": event.EventID,
 	})
 }

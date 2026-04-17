@@ -44,22 +44,19 @@ func (h *UserHandlerImpl) GetProfile(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
 		h.logger.Warn("UserID not found in context", zap.String("requestID", requestID))
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	profile, appErr := h.userService.GetUserProfile(c, userID)
 	if appErr != nil {
 		h.logger.Error("Failed to get user profile", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("User profile retrieved", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Profile retrieved successfully",
-		"data":    profile,
-	})
+	middlewares.RespondWithSuccess(c, 200, "Profile retrieved successfully", profile)
 }
 
 // UpdateProfile updates the current user's profile
@@ -70,29 +67,28 @@ func (h *UserHandlerImpl) UpdateProfile(c *gin.Context) {
 
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	var updateReq userServices.ProfileUpdateRequest
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
 		h.logger.Warn("Invalid profile update request", zap.String("requestID", requestID), zap.Error(err))
-		c.JSON(400, gin.H{"error": "Invalid request body"})
+		middlewares.RespondWithError(c, 400, "VALIDATION_ERROR", "Invalid request body", map[string]interface{}{
+			"details": err.Error(),
+		})
 		return
 	}
 
 	profile, appErr := h.userService.UpdateUserProfile(c, userID, &updateReq)
 	if appErr != nil {
 		h.logger.Error("Failed to update user profile", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("User profile updated", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Profile updated successfully",
-		"data":    profile,
-	})
+	middlewares.RespondWithSuccess(c, 200, "Profile updated successfully", profile)
 }
 
 // GetSettings retrieves the current user's settings
@@ -103,22 +99,19 @@ func (h *UserHandlerImpl) GetSettings(c *gin.Context) {
 
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	settings, appErr := h.userService.GetUserSettings(c, userID)
 	if appErr != nil {
 		h.logger.Error("Failed to get user settings", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("User settings retrieved", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Settings retrieved successfully",
-		"data":    settings,
-	})
+	middlewares.RespondWithSuccess(c, 200, "Settings retrieved successfully", settings)
 }
 
 // UpdateSettings updates the current user's settings
@@ -129,29 +122,28 @@ func (h *UserHandlerImpl) UpdateSettings(c *gin.Context) {
 
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	var settings userModels.UserSettings
 	if err := c.ShouldBindJSON(&settings); err != nil {
 		h.logger.Warn("Invalid settings update request", zap.String("requestID", requestID), zap.Error(err))
-		c.JSON(400, gin.H{"error": "Invalid request body"})
+		middlewares.RespondWithError(c, 400, "VALIDATION_ERROR", "Invalid request body", map[string]interface{}{
+			"details": err.Error(),
+		})
 		return
 	}
 
 	updated, appErr := h.userService.UpdateUserSettings(c, userID, &settings)
 	if appErr != nil {
 		h.logger.Error("Failed to update user settings", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("User settings updated", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Settings updated successfully",
-		"data":    updated,
-	})
+	middlewares.RespondWithSuccess(c, 200, "Settings updated successfully", updated)
 }
 
 // CompleteOnboarding marks user's onboarding as completed
@@ -162,20 +154,20 @@ func (h *UserHandlerImpl) CompleteOnboarding(c *gin.Context) {
 
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	appErr := h.userService.CompleteOnboarding(c, userID)
 	if appErr != nil {
 		h.logger.Error("Failed to complete onboarding", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("Onboarding completed", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Onboarding completed successfully",
+	middlewares.RespondWithSuccess(c, 200, "Onboarding completed successfully", gin.H{
+		"status": "completed",
 	})
 }
 
@@ -187,19 +179,19 @@ func (h *UserHandlerImpl) DeleteAccount(c *gin.Context) {
 
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	appErr := h.userService.DeleteUserAccount(c, userID)
 	if appErr != nil {
 		h.logger.Error("Failed to delete user account", zap.String("requestID", requestID), zap.Error(appErr))
-		c.JSON(appErr.HTTPStatus, appErr)
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
 	h.logger.Info("User account deleted", zap.String("requestID", requestID), zap.String("userID", userID))
-	c.JSON(200, gin.H{
-		"message": "Account deleted successfully",
+	middlewares.RespondWithSuccess(c, 200, "Account deleted successfully", gin.H{
+		"status": "deleted",
 	})
 }

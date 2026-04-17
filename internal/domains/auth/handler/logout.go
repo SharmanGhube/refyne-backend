@@ -16,11 +16,7 @@ func (h *AuthHandlerImpl) Logout(c *gin.Context) {
 	token, exists := middlewares.GetToken(c)
 	if !exists || token == "" {
 		h.logger.Warn("Logout attempt without token", zap.String("requestID", middlewares.GetRequestID(c)))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":      "Bad Request",
-			"message":    "No token provided",
-			"request_id": middlewares.GetRequestID(c),
-		})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "INVALID_REQUEST", "No token provided", nil)
 		return
 	}
 
@@ -41,9 +37,8 @@ func (h *AuthHandlerImpl) Logout(c *gin.Context) {
 		zap.String("requestID", middlewares.GetRequestID(c)),
 		zap.String("userID", userID))
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "Logged out successfully",
-		"request_id": middlewares.GetRequestID(c),
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Logged out successfully", gin.H{
+		"status": "logged_out",
 	})
 }
 
@@ -56,11 +51,7 @@ func (h *AuthHandlerImpl) LogoutAllDevices(c *gin.Context) {
 	if !exists || userID == "" {
 		h.logger.Warn("Logout all devices attempt without authentication",
 			zap.String("requestID", middlewares.GetRequestID(c)))
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":      "Unauthorized",
-			"message":    "Authentication required",
-			"request_id": middlewares.GetRequestID(c),
-		})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication required", nil)
 		return
 	}
 
@@ -78,8 +69,7 @@ func (h *AuthHandlerImpl) LogoutAllDevices(c *gin.Context) {
 		zap.String("requestID", middlewares.GetRequestID(c)),
 		zap.String("userID", userID))
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":    "Logged out from all devices successfully",
-		"request_id": middlewares.GetRequestID(c),
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Logged out from all devices successfully", gin.H{
+		"status": "logged_out_all_devices",
 	})
 }

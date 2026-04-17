@@ -39,52 +39,54 @@ func NewWorkspaceHandler(wsService services.WorkspaceService, memberService serv
 func (h *WorkspaceHandlerImpl) CreateWorkspace(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	var req models.CreateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request", map[string]interface{}{
+			"details": err.Error(),
+		})
 		return
 	}
 
 	ws, appErr := h.wsService.CreateWorkspace(c, userID, req.Name, req.Description)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusCreated, ws)
+	middlewares.RespondWithSuccess(c, http.StatusCreated, "Workspace created successfully", ws)
 }
 
 func (h *WorkspaceHandlerImpl) GetWorkspace(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaceID := c.Param("id")
 	ws, appErr := h.wsService.GetWorkspace(c, userID, workspaceID)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusOK, ws)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Workspace retrieved successfully", ws)
 }
 
 func (h *WorkspaceHandlerImpl) ListWorkspaces(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaces, appErr := h.wsService.ListWorkspaces(c, userID)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
@@ -92,59 +94,65 @@ func (h *WorkspaceHandlerImpl) ListWorkspaces(c *gin.Context) {
 		workspaces = []*models.Workspace{}
 	}
 
-	c.JSON(http.StatusOK, workspaces)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Workspaces retrieved successfully", gin.H{
+		"workspaces": workspaces,
+	})
 }
 
 func (h *WorkspaceHandlerImpl) UpdateWorkspace(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaceID := c.Param("id")
 	var req models.UpdateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request", map[string]interface{}{
+			"details": err.Error(),
+		})
 		return
 	}
 
 	ws, appErr := h.wsService.UpdateWorkspace(c, userID, workspaceID, &req)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusOK, ws)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Workspace updated successfully", ws)
 }
 
 func (h *WorkspaceHandlerImpl) DeleteWorkspace(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaceID := c.Param("id")
 	if appErr := h.wsService.DeleteWorkspace(c, userID, workspaceID); appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Workspace deleted"})
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Workspace deleted successfully", gin.H{
+		"status": "deleted",
+	})
 }
 
 func (h *WorkspaceHandlerImpl) ListMembers(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaceID := c.Param("id")
 	members, appErr := h.memberService.ListMembers(c, workspaceID, userID)
 	if appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
@@ -152,35 +160,41 @@ func (h *WorkspaceHandlerImpl) ListMembers(c *gin.Context) {
 		members = []*models.WorkspaceMember{}
 	}
 
-	c.JSON(http.StatusOK, members)
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Members retrieved successfully", gin.H{
+		"members": members,
+	})
 }
 
 func (h *WorkspaceHandlerImpl) InviteMember(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
 	workspaceID := c.Param("id")
 	var req models.InviteMemberRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request", map[string]interface{}{
+			"details": err.Error(),
+		})
 		return
 	}
 
 	if appErr := h.memberService.InviteMember(c, workspaceID, userID, req.Email); appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Invitation sent"})
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Invitation sent successfully", gin.H{
+		"status": "invited",
+	})
 }
 
 func (h *WorkspaceHandlerImpl) RemoveMember(c *gin.Context) {
 	userID, exists := middlewares.GetUserID(c)
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		middlewares.RespondWithError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User authentication required", nil)
 		return
 	}
 
@@ -188,9 +202,11 @@ func (h *WorkspaceHandlerImpl) RemoveMember(c *gin.Context) {
 	memberID := c.Param("memberId")
 
 	if appErr := h.memberService.RemoveMember(c, workspaceID, userID, memberID); appErr != nil {
-		c.JSON(appErr.HTTPStatus, gin.H{"error": appErr.Message})
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Member removed"})
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Member removed successfully", gin.H{
+		"status": "removed",
+	})
 }

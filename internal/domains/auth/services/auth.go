@@ -227,6 +227,12 @@ func (s *AuthServiceImpl) LoginUser(c *gin.Context, email, password string) (*us
 	return user, tokenPair, nil
 }
 
+// LoginWithPassword is an alias for LoginUser to support both endpoint naming conventions
+func (s *AuthServiceImpl) LoginWithPassword(c *gin.Context, email, password string) (*userModels.User, *authUtils.TokenPair, *errors.AppError) {
+	s.logger.Info("Password login attempt", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))
+	return s.LoginUser(c, email, password)
+}
+
 // RequestOTP validates user credentials and generates an OTP
 func (s *AuthServiceImpl) RequestOTP(c *gin.Context, email, password string) *errors.AppError {
 	s.logger.Info("Requesting OTP for user", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", email))

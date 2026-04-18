@@ -11,6 +11,7 @@ type AuthHandler interface {
 	Register(c *gin.Context)
 	RequestOTP(c *gin.Context)
 	VerifyOTP(c *gin.Context)
+	LoginWithPassword(c *gin.Context)
 	RefreshToken(c *gin.Context)
 	Logout(c *gin.Context)
 	LogoutAllDevices(c *gin.Context)

@@ -51,19 +51,19 @@ func (h *AuthHandlerImpl) Register(c *gin.Context) {
 
 	// Build response data with complete user information
 	responseData := gin.H{
-		"user_id":                   user.ID,
-		"email":                     user.Email,
-		"first_name":                user.FirstName,
-		"last_name":                 user.LastName,
-		"username":                  user.Username,
-		"is_verified":               user.IsVerified,
-		"is_active":                 user.IsActive,
-		"status":                    user.Status,
-		"onboarding_completed":      user.OnboardingCompleted,
-		"subscription_status":       user.SubscriptionStatus,
-		"subscription_tier":         user.SubscriptionTier,
-		"created_at":                user.CreatedAt,
-		"message":                   "User registered successfully. Please check your email to verify your account.",
+		"user_id":              user.ID,
+		"email":                user.Email,
+		"first_name":           user.FirstName,
+		"last_name":            user.LastName,
+		"username":             user.Username,
+		"is_verified":          user.IsVerified,
+		"is_active":            user.IsActive,
+		"status":               user.Status,
+		"onboarding_completed": user.OnboardingCompleted,
+		"subscription_status":  user.SubscriptionStatus,
+		"subscription_tier":    user.SubscriptionTier,
+		"created_at":           user.CreatedAt,
+		"message":              "User registered successfully. Please check your email to verify your account.",
 	}
 
 	// Send response using standardized success envelope
@@ -156,6 +156,59 @@ func (h *AuthHandlerImpl) VerifyOTP(c *gin.Context) {
 	responseData := gin.H{
 		"user":       userResponse,
 		"token_pair": tokenPair,
+	}
+
+	middlewares.RespondWithSuccess(c, http.StatusOK, "Login successful", responseData)
+}
+
+// LoginWithPassword handles password-based login
+func (h *AuthHandlerImpl) LoginWithPassword(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required,min=8"`
+	}
+
+	// Bind and validate the request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid login request", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(err))
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request data", map[string]interface{}{
+			"details": err.Error(),
+		})
+		return
+	}
+
+	h.logger.Info("Processing password login request", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("email", req.Email))
+
+	// Call Auth Service to verify credentials and login
+	user, tokenPair, appErr := h.authService.LoginUser(c, req.Email, req.Password)
+	if appErr != nil {
+		h.logger.Error("Password login failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
+		return
+	}
+
+	h.logger.Info("User logged in successfully with password", zap.String("requestID", middlewares.GetRequestID(c)), zap.String("userID", user.ID))
+
+	// Prepare user response (exclude sensitive data)
+	userResponse := gin.H{
+		"user_id":               user.ID,
+		"email":                 user.Email,
+		"username":              user.Username,
+		"first_name":            user.FirstName,
+		"last_name":             user.LastName,
+		"status":                user.Status,
+		"is_active":             user.IsActive,
+		"is_verified":           user.IsVerified,
+		"onboarding_completed":  user.OnboardingCompleted,
+		"created_at":            user.CreatedAt,
+	}
+
+	// Respond with the JWT tokens using standardized success envelope
+	responseData := gin.H{
+		"user":         userResponse,
+		"token_pair":   tokenPair,
+		"access_token": tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
 	}
 
 	middlewares.RespondWithSuccess(c, http.StatusOK, "Login successful", responseData)

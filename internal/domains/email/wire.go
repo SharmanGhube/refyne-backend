@@ -11,7 +11,7 @@ var ProviderSet = wire.NewSet(
 	NewEmailRegistry,
 
 	// Services
-	service.NewSMTPService,
+	service.NewResendService,
 	service.NewEmailService,
 
 	// Workers

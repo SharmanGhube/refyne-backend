@@ -72,7 +72,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	passwordResetRepository := auth.NewPasswordResetRepository(db)
 	verificationRepository := auth.NewVerificationRepository(db)
 	accountSecurityRepository := auth.NewAccountSecurityRepository(db)
-	smtpService := service.NewSMTPService(configConfig)
+	smtpService := service.NewResendService(configConfig)
 	emailService, err := service.NewEmailService(smtpService)
 	if err != nil {
 		return nil, err

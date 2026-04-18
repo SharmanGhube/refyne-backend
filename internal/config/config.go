@@ -11,13 +11,14 @@ import (
 type Config struct {
 	version string
 
-	Environment string
-	Port        string
-	FrontendURL string
-	SMTP        SMTPConfig
-	Database    DatabaseConfig
-	Redis       RedisConfig
-	Instagram   InstagramConfig
+	Environment  string
+	Port         string
+	FrontendURL  string
+	ResendAPIKey string
+	SMTP         SMTPConfig
+	Database     DatabaseConfig
+	Redis        RedisConfig
+	Instagram    InstagramConfig
 }
 
 type SMTPConfig struct {
@@ -79,10 +80,11 @@ func NewConfig() (*Config, error) {
 	}
 
 	config := &Config{
-		version:     os.Getenv("APP_VERSION"),
+		version:      os.Getenv("APP_VERSION"),
 		Environment: env,
 		Port:        port,
 		FrontendURL: frontendURL,
+		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
 		SMTP: SMTPConfig{
 			Host:     os.Getenv("SMTP_HOST"),
 			Port:     587, // Default SMTP port
@@ -165,15 +167,9 @@ func validateProductionConfig(logger *zap.Logger, cfg *Config) {
 		logger.Warn("Redis host is set to localhost - this will fail in production containers. Use Railway service reference: ${{Redis.REDIS_HOST}}")
 	}
 
-	// Check SMTP configuration
-	if cfg.SMTP.Host == "" {
-		missingVars = append(missingVars, "SMTP_HOST")
-	}
-	if cfg.SMTP.Username == "" {
-		missingVars = append(missingVars, "SMTP_USERNAME")
-	}
-	if cfg.SMTP.Password == "" {
-		missingVars = append(missingVars, "SMTP_PASSWORD")
+	// Check Resend configuration
+	if cfg.ResendAPIKey == "" {
+		missingVars = append(missingVars, "RESEND_API_KEY")
 	}
 
 	// Check JWT configuration

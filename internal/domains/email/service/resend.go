@@ -24,7 +24,7 @@ func NewResendService(cfg *config.Config) SMTPService {
 
 	return &resendService{
 		client: client,
-		from:   "onboarding@resend.dev",
+		from:   "sharmanghube@gmail.com",
 		logger: logger,
 	}
 }

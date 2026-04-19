@@ -45,6 +45,9 @@ func SetupAuthRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerR
 			AuthHandler.RefreshToken)
 
 		// ========== EMAIL VERIFICATION (Frontend-Expected Paths) ==========
+		authGroup.GET("/verify/email",
+			AuthHandler.VerifyAccount)
+
 		authGroup.POST("/verify/email",
 			AuthHandler.VerifyAccount)
 
@@ -53,6 +56,9 @@ func SetupAuthRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerR
 			AuthHandler.ResendVerification)
 
 		// ========== LEGACY VERIFICATION ENDPOINTS (Backward Compatibility) ==========
+		authGroup.GET("/verify",
+			AuthHandler.VerifyAccount)
+
 		authGroup.POST("/verify",
 			AuthHandler.VerifyAccount)
 

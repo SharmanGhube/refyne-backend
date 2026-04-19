@@ -254,22 +254,30 @@ func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 func (h *AuthHandlerImpl) VerifyAccount(c *gin.Context) {
 	h.logger.Info("Account verification request", zap.String("requestID", middlewares.GetRequestID(c)))
 
-	// Request structure
-	var req struct {
-		Token string `json:"token" binding:"required"`
-	}
+	// Get token from query param (GET) or JSON body (POST)
+	var token string
 
-	// Bind request
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Warn("Invalid verification request", zap.Error(err))
-		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
-			"details": err.Error(),
-		})
-		return
+	// Try query parameter first (for GET requests)
+	token = c.Query("token")
+
+	// If not in query, try JSON body (for POST requests)
+	if token == "" {
+		var req struct {
+			Token string `json:"token" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			h.logger.Warn("Invalid verification request", zap.Error(err))
+			middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
+				"details": err.Error(),
+			})
+			return
+		}
+		token = req.Token
 	}
 
 	// Verify account
-	if appErr := h.authService.VerifyAccount(c, req.Token); appErr != nil {
+	if appErr := h.authService.VerifyAccount(c, token); appErr != nil {
 		h.logger.Error("Account verification failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return

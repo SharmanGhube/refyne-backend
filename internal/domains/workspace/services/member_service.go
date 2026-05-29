@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/internal/domains/email/jobs"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace/core/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/workspace/models"
@@ -21,22 +22,22 @@ type MemberService interface {
 }
 
 type MemberServiceImpl struct {
-	name       string
-	logger     *zap.Logger
-	wsRepo     repository.WorkspaceRepository
-	memberRepo repository.WorkspaceMemberRepository
+	name        string
+	logger      *zap.Logger
+	wsRepo      repository.WorkspaceRepository
+	memberRepo  repository.WorkspaceMemberRepository
 	riverClient *river.Client[any]
 	frontendURL string
 }
 
-func NewMemberService(wsRepo repository.WorkspaceRepository, memberRepo repository.WorkspaceMemberRepository, riverClient *river.Client[any]) MemberService {
+func NewMemberService(wsRepo repository.WorkspaceRepository, memberRepo repository.WorkspaceMemberRepository, riverClient *river.Client[any], cfg *config.Config) MemberService {
 	return &MemberServiceImpl{
-		name:       "MemberService",
-		logger:     logging.GetServiceLogger("MemberService"),
-		wsRepo:     wsRepo,
-		memberRepo: memberRepo,
+		name:        "MemberService",
+		logger:      logging.GetServiceLogger("MemberService"),
+		wsRepo:      wsRepo,
+		memberRepo:  memberRepo,
 		riverClient: riverClient,
-		frontendURL: "http://localhost:3000", // This should come from config
+		frontendURL: cfg.FrontendURL,
 	}
 }
 

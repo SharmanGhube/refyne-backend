@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/refynehq/refyne-backend/internal/config"
 	"github.com/refynehq/refyne-backend/pkg/logging"
@@ -22,9 +23,14 @@ func NewResendService(cfg *config.Config) SMTPService {
 
 	client := resend.NewClient(cfg.ResendAPIKey)
 
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if fromEmail == "" {
+		fromEmail = "onboarding@resend.dev"
+	}
+
 	return &resendService{
 		client: client,
-		from:   "onboarding@resend.dev",
+		from:   fromEmail,
 		logger: logger,
 	}
 }

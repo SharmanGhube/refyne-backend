@@ -135,7 +135,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	workspaceRepository := repository3.NewWorkspaceRepository(db)
 	workspaceMemberRepository := repository3.NewWorkspaceMemberRepository(db)
 	workspaceService := services3.NewWorkspaceService(workspaceRepository, workspaceMemberRepository)
-	memberService := services3.NewMemberService(workspaceRepository, workspaceMemberRepository, client)
+	memberService := services3.NewMemberService(workspaceRepository, workspaceMemberRepository, client, configConfig)
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, memberService)
 	workspaceRegistry := workspace.NewWorkspaceRegistry(workspaceHandler)
 	paddleConfig, err := config3.NewPaddleConfig(logger)

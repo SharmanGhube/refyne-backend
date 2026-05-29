@@ -30,11 +30,18 @@ services:
           property: database
       - key: DB_SSL_MODE
         value: require
-      - key: REDIS_URL
+      - key: REDIS_HOST
         fromService:
           name: refyne-redis
           type: keyvalue
-          property: connectionString
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          name: refyne-redis
+          type: keyvalue
+          property: port
+      - key: PAYMENT_MODE
+        value: mock
       - key: JWT_SECRET
         generateValue: true
       - key: ALLOWED_ORIGINS

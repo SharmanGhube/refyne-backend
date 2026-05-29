@@ -29,6 +29,10 @@ services:
         sync: false
       - key: INSTAGRAM_REDIRECT_URI
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: AUTO_MIGRATE
+        value: "true"
 
 databases:
   - name: refyne-db

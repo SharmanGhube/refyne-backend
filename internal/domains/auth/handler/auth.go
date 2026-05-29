@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
@@ -152,10 +153,14 @@ func (h *AuthHandlerImpl) VerifyOTP(c *gin.Context) {
 		"is_verified": user.IsVerified,
 	}
 
-	// Respond with the JWT tokens using standardized success envelope
+	// Set refresh token as httpOnly cookie (not accessible via JS)
+	middlewares.SetRefreshTokenCookie(c, tokenPair.RefreshToken, 7*24*time.Hour)
+
+	// Respond with access token only — refresh token lives in the cookie
 	responseData := gin.H{
-		"user":       userResponse,
-		"token_pair": tokenPair,
+		"user":         userResponse,
+		"access_token": tokenPair.AccessToken,
+		"expires_in":   tokenPair.ExpiresIn,
 	}
 
 	middlewares.RespondWithSuccess(c, http.StatusOK, "Login successful", responseData)
@@ -191,58 +196,71 @@ func (h *AuthHandlerImpl) LoginWithPassword(c *gin.Context) {
 
 	// Prepare user response (exclude sensitive data)
 	userResponse := gin.H{
-		"user_id":               user.ID,
-		"email":                 user.Email,
-		"username":              user.Username,
-		"first_name":            user.FirstName,
-		"last_name":             user.LastName,
-		"status":                user.Status,
-		"is_active":             user.IsActive,
-		"is_verified":           user.IsVerified,
-		"onboarding_completed":  user.OnboardingCompleted,
-		"created_at":            user.CreatedAt,
+		"user_id":              user.ID,
+		"email":                user.Email,
+		"username":             user.Username,
+		"first_name":           user.FirstName,
+		"last_name":            user.LastName,
+		"status":               user.Status,
+		"is_active":            user.IsActive,
+		"is_verified":          user.IsVerified,
+		"onboarding_completed": user.OnboardingCompleted,
+		"created_at":           user.CreatedAt,
 	}
 
-	// Respond with the JWT tokens using standardized success envelope
+	// Set refresh token as httpOnly cookie (not accessible via JS)
+	middlewares.SetRefreshTokenCookie(c, tokenPair.RefreshToken, 7*24*time.Hour)
+
+	// Respond with access token only — refresh token lives in the cookie
 	responseData := gin.H{
 		"user":         userResponse,
-		"token_pair":   tokenPair,
 		"access_token": tokenPair.AccessToken,
-		"refresh_token": tokenPair.RefreshToken,
+		"expires_in":   tokenPair.ExpiresIn,
 	}
 
 	middlewares.RespondWithSuccess(c, http.StatusOK, "Login successful", responseData)
 }
 
-// RefreshToken handles token refresh requests
+// RefreshToken handles token refresh requests.
+// It reads the refresh token from the httpOnly cookie first, falling back to
+// the JSON body for backward compatibility with older clients.
 func (h *AuthHandlerImpl) RefreshToken(c *gin.Context) {
 	h.logger.Info("Refresh token request", zap.String("requestID", middlewares.GetRequestID(c)))
 
-	// Request structure
-	var req struct {
-		RefreshToken string `json:"refresh_token" binding:"required"`
+	// 1. Try to read refresh token from httpOnly cookie (preferred)
+	refreshToken, fromCookie := middlewares.GetRefreshTokenFromCookie(c)
+
+	// 2. Fallback: read from JSON body (backward compat for older clients)
+	if !fromCookie {
+		var req struct {
+			RefreshToken string `json:"refresh_token"`
+		}
+		if err := c.ShouldBindJSON(&req); err == nil && req.RefreshToken != "" {
+			refreshToken = req.RefreshToken
+		}
 	}
 
-	// Bind request
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Warn("Invalid refresh token request", zap.Error(err))
-		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid request format", map[string]interface{}{
-			"details": err.Error(),
-		})
+	if refreshToken == "" {
+		h.logger.Warn("No refresh token found in cookie or body", zap.String("requestID", middlewares.GetRequestID(c)))
+		middlewares.RespondWithError(c, http.StatusBadRequest, "VALIDATION_ERROR", "Refresh token is required", nil)
 		return
 	}
 
-	// Refresh token
-	tokenPair, appErr := h.authService.RefreshToken(c, req.RefreshToken)
+	// Refresh the token pair
+	tokenPair, appErr := h.authService.RefreshToken(c, refreshToken)
 	if appErr != nil {
 		h.logger.Error("Token refresh failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
-	// Success response using standardized envelope
+	// Rotate: set new refresh token in httpOnly cookie
+	middlewares.SetRefreshTokenCookie(c, tokenPair.RefreshToken, 7*24*time.Hour)
+
+	// Return new access token only
 	responseData := gin.H{
-		"token_pair": tokenPair,
+		"access_token": tokenPair.AccessToken,
+		"expires_in":   tokenPair.ExpiresIn,
 	}
 
 	middlewares.RespondWithSuccess(c, http.StatusOK, "Token refreshed successfully", responseData)

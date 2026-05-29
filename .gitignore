@@ -5,12 +5,16 @@
 
 # Binaries and build artifacts
 bin/
+refyne-backend
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 dist/
+
+# Environment overrides with secrets
+.env.dev
 
 # Logs
 /logs

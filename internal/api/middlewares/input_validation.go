@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/shared/validation"
@@ -57,8 +59,41 @@ func InputValidationMiddleware() gin.HandlerFunc {
 			}
 		}
 
+		// Validate path parameters for traversal / null-byte / control chars
+		for _, param := range c.Params {
+			if containsDangerousPathChars(param.Value) {
+				logger.Warn("Dangerous path parameter detected",
+					zap.String("requestID", requestID),
+					zap.String("param", param.Key),
+					zap.String("path", c.Request.URL.Path))
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":      "Bad Request",
+					"message":    "Invalid path parameter",
+					"request_id": requestID,
+				})
+				c.Abort()
+				return
+			}
+		}
+
 		// Validate JSON body for POST/PUT/PATCH requests
 		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
+			// Enforce Content-Type: application/json
+			contentType := c.GetHeader("Content-Type")
+			if c.Request.ContentLength > 0 && !strings.HasPrefix(contentType, "application/json") {
+				logger.Warn("Invalid Content-Type for mutating request",
+					zap.String("requestID", requestID),
+					zap.String("contentType", contentType),
+					zap.String("path", c.Request.URL.Path))
+				c.JSON(http.StatusUnsupportedMediaType, gin.H{
+					"error":      "Unsupported Media Type",
+					"message":    "Content-Type must be application/json",
+					"request_id": requestID,
+				})
+				c.Abort()
+				return
+			}
+
 			if c.Request.Body != nil {
 				bodyBytes, err := io.ReadAll(c.Request.Body)
 				if err == nil && len(bodyBytes) > 0 {
@@ -128,6 +163,26 @@ func detectDangerousPatterns(data interface{}) bool {
 		}
 	}
 
+	return false
+}
+
+// containsDangerousPathChars checks path parameter values for traversal,
+// null-byte injection, and control character attacks.
+func containsDangerousPathChars(value string) bool {
+	// Path traversal
+	if strings.Contains(value, "..") {
+		return true
+	}
+	// Null byte injection (URL-encoded or literal)
+	if strings.Contains(value, "%00") || strings.ContainsRune(value, '\x00') {
+		return true
+	}
+	// Control characters (ASCII 0-31 except common whitespace)
+	for _, r := range value {
+		if unicode.IsControl(r) && r != '\t' && r != '\n' && r != '\r' {
+			return true
+		}
+	}
 	return false
 }
 

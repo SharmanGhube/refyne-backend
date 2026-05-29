@@ -81,9 +81,9 @@ func NewConfig() (*Config, error) {
 
 	config := &Config{
 		version:      os.Getenv("APP_VERSION"),
-		Environment: env,
-		Port:        port,
-		FrontendURL: frontendURL,
+		Environment:  env,
+		Port:         port,
+		FrontendURL:  frontendURL,
 		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
 		SMTP: SMTPConfig{
 			Host:     os.Getenv("SMTP_HOST"),

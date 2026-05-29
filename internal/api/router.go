@@ -91,13 +91,14 @@ func NewRouter(registry *handlerregistry.HandlerRegistry, db *sqlx.DB, redisClie
 		apiRoutes.GET("/health/live", healthChecker.LivenessCheck)
 
 		// Auth routes (contains both public and protected)
-		auth.SetupAuthRoutes(apiRoutes, registry)
+		auth.SetupAuthRoutes(apiRoutes, registry, redisClient)
 
 		// Subscription routes (checkout, webhooks, status)
 		subscription.SetupSubscriptionRoutes(apiRoutes, registry)
 
 		// User routes (profile, settings, onboarding)
 		user.SetupUserRoutes(apiRoutes, registry)
+		apiRoutes.POST("/onboarding/complete", middlewares.AuthMiddleware(), registry.User.CompleteOnboarding)
 
 		// Workspace routes (multi-workspace support)
 		workspace.SetupWorkspaceRoutes(apiRoutes, registry)

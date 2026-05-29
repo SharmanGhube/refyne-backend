@@ -15,6 +15,7 @@ import (
 // OttoHandler handles Otto AI assistant endpoints
 type OttoHandler struct {
 	conversationService services.OttoConversationManager
+	assistantService    services.OttoAssistantService
 	messageRepo         repository.OttoMessageRepository
 	logger              *zap.Logger
 }
@@ -22,10 +23,12 @@ type OttoHandler struct {
 // NewOttoHandler creates a new Otto handler
 func NewOttoHandler(
 	conversationService services.OttoConversationManager,
+	assistantService services.OttoAssistantService,
 	messageRepo repository.OttoMessageRepository,
 ) *OttoHandler {
 	return &OttoHandler{
 		conversationService: conversationService,
+		assistantService:    assistantService,
 		messageRepo:         messageRepo,
 		logger:              logging.GetHandlerLogger("OttoHandler"),
 	}
@@ -315,7 +318,7 @@ func (h *OttoHandler) DeleteConversation(c *gin.Context) {
 	})
 }
 
-// SendMessage sends a message in a conversation
+// SendMessage sends a user message and returns the AI-generated assistant reply.
 // POST /api/otto/conversations/:id/messages
 func (h *OttoHandler) SendMessage(c *gin.Context) {
 	conversationID := c.Param("id")
@@ -343,24 +346,60 @@ func (h *OttoHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// Create user message
-	message := models.NewOttoMessage(conversationID, userID, "user", req.Content)
-	if err := h.messageRepo.CreateMessage(c, message); err != nil {
-		h.logger.Error("Failed to create message", zap.Error(err))
+	// Save user message first
+	userMsg := models.NewOttoMessage(conversationID, userID, "user", req.Content)
+	if err := h.messageRepo.CreateMessage(c, userMsg); err != nil {
+		h.logger.Error("Failed to create user message", zap.Error(err))
 		c.JSON(500, gin.H{"error": "Failed to send message"})
 		return
 	}
 
-	h.logger.Info("Message sent", zap.String("message_id", message.ID), zap.String("conversation_id", conversationID))
+	h.logger.Info("User message saved",
+		zap.String("message_id", userMsg.ID),
+		zap.String("conversation_id", conversationID),
+	)
+
+	// Generate and persist AI reply
+	assistantMsg, aiErr := h.assistantService.ProcessMessage(c, conversationID, req.Content)
+	if aiErr != nil {
+		h.logger.Error("AI response generation failed", zap.Error(aiErr))
+		// Still return the user message so the UI doesn't hang
+		c.JSON(201, gin.H{
+			"status": "ok",
+			"data": gin.H{
+				"user_message": gin.H{
+					"id":              userMsg.ID,
+					"role":            userMsg.Role,
+					"content":         userMsg.Content,
+					"created_at":      userMsg.CreatedAt,
+				},
+				"assistant_message": nil,
+			},
+		})
+		return
+	}
+
+	h.logger.Info("Assistant reply saved",
+		zap.String("message_id", assistantMsg.ID),
+		zap.String("conversation_id", conversationID),
+	)
 
 	c.JSON(201, gin.H{
 		"status": "ok",
 		"data": gin.H{
-			"id":              message.ID,
-			"conversation_id": message.ConversationID,
-			"role":            message.Role,
-			"content":         message.Content,
-			"created_at":      message.CreatedAt,
+			"user_message": gin.H{
+				"id":         userMsg.ID,
+				"role":       userMsg.Role,
+				"content":    userMsg.Content,
+				"created_at": userMsg.CreatedAt,
+			},
+			"assistant_message": gin.H{
+				"id":         assistantMsg.ID,
+				"role":       assistantMsg.Role,
+				"content":    assistantMsg.Content,
+				"model_used": assistantMsg.ModelUsed,
+				"created_at": assistantMsg.CreatedAt,
+			},
 		},
 	})
 }

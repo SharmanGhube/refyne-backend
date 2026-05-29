@@ -2,16 +2,17 @@ package auth
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	handlerregistry "github.com/refynehq/refyne-backend/internal/shared/handlerRegistry"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 )
 
-func SetupAuthRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerRegistry) {
+func SetupAuthRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerRegistry, redisClient redis.Cmdable) {
 	AuthHandler := registry.Auth
 
-	// Initialize rate limiter
-	rateLimiter := middlewares.NewInMemoryRateLimiter(logging.GetComponentLogger("ratelimit"))
+	// Initialize Redis-backed rate limiter (auto-falls back to in-memory when Redis is nil or unreachable)
+	rateLimiter := middlewares.NewRedisRateLimiter(redisClient, logging.GetComponentLogger("ratelimit"))
 
 	authGroup := router.Group("/auth")
 	{

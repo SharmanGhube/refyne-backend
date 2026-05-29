@@ -1,6 +1,9 @@
 package middlewares
 
 import (
+	"os"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -44,8 +47,16 @@ func CORSMiddleware() gin.HandlerFunc {
 
 // getAllowedOrigins returns the list of allowed origins based on environment
 func getAllowedOrigins() []string {
-	// In production, restrict to specific domains
-	// In development, allow localhost
+	originsStr := os.Getenv("ALLOWED_ORIGINS")
+	if originsStr != "" {
+		origins := strings.Split(originsStr, ",")
+		for i, o := range origins {
+			origins[i] = strings.TrimSpace(o)
+		}
+		return origins
+	}
+
+	// Fallback to defaults
 	return []string{
 		"http://localhost:3000",
 		"http://localhost:3001",
@@ -58,7 +69,11 @@ func getAllowedOrigins() []string {
 
 // isOriginAllowed checks if the origin is in the allowed list
 func isOriginAllowed(origin string, allowedOrigins []string) bool {
+	// If allow-all wildcard is in allowedOrigins, allow any origin
 	for _, allowed := range allowedOrigins {
+		if allowed == "*" {
+			return true
+		}
 		if origin == allowed {
 			return true
 		}

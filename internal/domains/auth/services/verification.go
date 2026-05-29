@@ -68,15 +68,17 @@ func (s *AuthServiceImpl) SendVerificationEmail(c *gin.Context, userID, email, u
 				zap.Error(emailErr),
 			)
 			// Don't fail the request if email sending fails
+		} else {
+			s.logger.Info("Verification email sent successfully",
+				zap.String("requestID", middlewares.GetRequestID(c)),
+				zap.String("user_id", userID),
+			)
 		}
 	} else {
-		s.logger.Warn("Email service not configured, verification email not sent")
+		s.logger.Warn("Email service not configured, verification email not sent",
+			zap.String("user_id", userID),
+		)
 	}
-
-	s.logger.Info("Verification email sent successfully",
-		zap.String("requestID", middlewares.GetRequestID(c)),
-		zap.String("user_id", userID),
-	)
 
 	return nil
 }

@@ -33,6 +33,9 @@ func (h *AuthHandlerImpl) Logout(c *gin.Context) {
 		return
 	}
 
+	// Clear the httpOnly refresh token cookie
+	middlewares.ClearRefreshTokenCookie(c)
+
 	h.logger.Info("User logged out successfully",
 		zap.String("requestID", middlewares.GetRequestID(c)),
 		zap.String("userID", userID))
@@ -64,6 +67,9 @@ func (h *AuthHandlerImpl) LogoutAllDevices(c *gin.Context) {
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
+
+	// Clear the httpOnly refresh token cookie for this device
+	middlewares.ClearRefreshTokenCookie(c)
 
 	h.logger.Info("User logged out from all devices",
 		zap.String("requestID", middlewares.GetRequestID(c)),

@@ -22,4 +22,5 @@ var ProviderSet = wire.NewSet(
 
 	// Services
 	services.NewConversationService,
+	services.NewOttoAssistantService,
 )

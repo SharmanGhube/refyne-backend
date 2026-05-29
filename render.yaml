@@ -8,10 +8,28 @@ services:
         value: production
       - key: PORT
         value: 8080
-      - key: DATABASE_URL
+      - key: DB_HOST
         fromDatabase:
           name: refyne-db
-          property: connectionString
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: refyne-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: refyne-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: refyne-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: refyne-db
+          property: database
+      - key: DB_SSL_MODE
+        value: require
       - key: REDIS_URL
         fromService:
           name: refyne-redis

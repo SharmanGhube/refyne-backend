@@ -42,6 +42,10 @@ services:
           property: port
       - key: PAYMENT_MODE
         value: mock
+      - key: FRONTEND_CHECKOUT_SUCCESS_URL
+        value: https://refyne-frontend.vercel.app/subscription-success
+      - key: FRONTEND_CHECKOUT_CANCEL_URL
+        value: https://refyne-frontend.vercel.app/pricing
       - key: JWT_SECRET
         generateValue: true
       - key: ALLOWED_ORIGINS

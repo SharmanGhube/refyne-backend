@@ -43,28 +43,43 @@ func NewInstagramConfig(logger *zap.Logger) (*InstagramConfig, error) {
 
 	if env == "production" {
 		appID = os.Getenv("INSTAGRAM_APP_ID")
+		if appID == "" {
+			appID = os.Getenv("INSTAGRAM_CLIENT_ID")
+		}
 		appSecret = os.Getenv("INSTAGRAM_APP_SECRET")
+		if appSecret == "" {
+			appSecret = os.Getenv("INSTAGRAM_CLIENT_SECRET")
+		}
 		accessToken = os.Getenv("INSTAGRAM_ACCESS_TOKEN")
 		refreshToken = os.Getenv("INSTAGRAM_REFRESH_TOKEN")
 	} else {
 		// Sandbox credentials
 		appID = os.Getenv("INSTAGRAM_SANDBOX_APP_ID")
+		if appID == "" {
+			appID = os.Getenv("INSTAGRAM_CLIENT_ID")
+		}
 		appSecret = os.Getenv("INSTAGRAM_SANDBOX_APP_SECRET")
+		if appSecret == "" {
+			appSecret = os.Getenv("INSTAGRAM_CLIENT_SECRET")
+		}
 		accessToken = os.Getenv("INSTAGRAM_SANDBOX_ACCESS_TOKEN")
 		refreshToken = os.Getenv("INSTAGRAM_SANDBOX_REFRESH_TOKEN")
 	}
 
 	if appID == "" {
-		logger.Info("INSTAGRAM_APP_ID not configured, using stub credentials for sandbox mode")
+		logger.Info("INSTAGRAM_APP_ID/INSTAGRAM_CLIENT_ID not configured, using stub credentials for sandbox mode")
 		appID = "stub-sandbox-app-id"
 	}
 
 	if appSecret == "" {
-		logger.Info("INSTAGRAM_APP_SECRET not configured, using stub credentials for sandbox mode")
+		logger.Info("INSTAGRAM_APP_SECRET/INSTAGRAM_CLIENT_SECRET not configured, using stub credentials for sandbox mode")
 		appSecret = "stub-sandbox-app-secret"
 	}
 
 	oauthRedirectURI := os.Getenv("INSTAGRAM_OAUTH_REDIRECT_URI")
+	if oauthRedirectURI == "" {
+		oauthRedirectURI = os.Getenv("INSTAGRAM_REDIRECT_URI")
+	}
 	if oauthRedirectURI == "" {
 		oauthRedirectURI = "http://localhost:8080/api/instagram/auth/callback"
 	}

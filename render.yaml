@@ -15,7 +15,7 @@ services:
       - key: REDIS_URL
         fromService:
           name: refyne-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -34,12 +34,11 @@ services:
       - key: AUTO_MIGRATE
         value: "true"
 
-databases:
-  - name: refyne-db
-    plan: free
-
-interfaces:
-  - type: redis
+  - type: keyvalue
     name: refyne-redis
     plan: free
     ipAllowList: []
+
+databases:
+  - name: refyne-db
+    plan: free

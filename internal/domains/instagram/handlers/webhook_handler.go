@@ -23,7 +23,7 @@ func (h *InstagramHandler) HandleWebhook(c *gin.Context) {
 		// In production, verify_token should come from Instagram config
 		// For now, we'll skip it since it's a setup parameter
 		if challenge != "" {
-			h.logger.Info("Webhook challenge received", zap.String("challenge", challenge[:20]+"..."))
+			h.logger.Info("Webhook challenge received", zap.String("challenge", challenge))
 			c.String(200, challenge)
 			return
 		}

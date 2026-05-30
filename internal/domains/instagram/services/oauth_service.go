@@ -64,32 +64,44 @@ func NewInstagramOAuthService(
 	}
 }
 
-// GenerateAuthURL generates the OAuth authorization URL for Instagram
+// GenerateAuthURL generates the OAuth authorization URL for Facebook Login (to manage Instagram)
 func (s *instagramOAuthService) GenerateAuthURL(state string) string {
-	baseURL := "https://api.instagram.com/oauth/authorize"
+	baseURL := "https://www.facebook.com/v19.0/dialog/oauth"
 
 	params := url.Values{}
 	params.Set("client_id", s.config.AppID)
 	params.Set("redirect_uri", s.config.OAuthRedirectURI)
-	params.Set("scope", "instagram_business_basic,instagram_business_content_publish,instagram_manage_messages")
+	// Facebook Login scopes required to manage Instagram DMs and Comments
+	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement,pages_manage_metadata")
 	params.Set("response_type", "code")
 	params.Set("state", state)
 
 	return fmt.Sprintf("%s?%s", baseURL, params.Encode())
 }
 
-// tokenExchangeResponse represents the response from Instagram's token endpoint
+// tokenExchangeResponse represents the response from Facebook's token endpoint
 type tokenExchangeResponse struct {
-	AccessToken  string `json:"access_token"`
-	UserID       string `json:"user_id"`
-	TokenType    string `json:"token_type"`
-	RefreshToken string `json:"refresh_token,omitempty"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
 }
 
-// userInfoResponse represents user data from Instagram
+// fbAccountsResponse represents Facebook Pages and their linked Instagram accounts
+type fbAccountsResponse struct {
+	Data []struct {
+		ID                       string `json:"id"`
+		Name                     string `json:"name"`
+		InstagramBusinessAccount struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+		} `json:"instagram_business_account,omitempty"`
+	} `json:"data"`
+}
+
+// userInfoResponse represents the extracted Instagram Business Account details
 type userInfoResponse struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
+	ID       string
+	Username string
 }
 
 // HandleCallback handles the OAuth callback and exchanges code for token
@@ -171,7 +183,7 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 	// Create account input
 	accountInput := &models.CreateInstagramAccountInput{
 		UserID:            userID,
-		InstagramUserID:   tokenResp.UserID,
+		InstagramUserID:   userInfo.ID,
 		Username:          userInfo.Username,
 		AccessToken:       encryptedToken,
 		RefreshToken:      encryptedRefreshToken,
@@ -190,23 +202,22 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 
 	s.logger.Info("Instagram account connected successfully",
 		zap.String("user_id", userID),
-		zap.String("instagram_user_id", tokenResp.UserID),
+		zap.String("instagram_user_id", userInfo.ID),
 		zap.String("username", userInfo.Username),
 	)
 
 	return account, nil
 }
 
-// exchangeCodeForToken exchanges the authorization code for an access token
+// exchangeCodeForToken exchanges the authorization code for an access token via Facebook Graph API
 func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchangeResponse, error) {
-	// Instagram token endpoint
-	tokenURL := "https://graph.instagram.com/v18.0/oauth/access_token"
+	// Facebook token endpoint
+	tokenURL := "https://graph.facebook.com/v19.0/oauth/access_token"
 
 	// Prepare request body
 	data := url.Values{}
 	data.Set("client_id", s.config.AppID)
 	data.Set("client_secret", s.config.AppSecret)
-	data.Set("grant_type", "authorization_code")
 	data.Set("redirect_uri", s.config.OAuthRedirectURI)
 	data.Set("code", code)
 
@@ -225,11 +236,11 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 
 	// Check for errors in response
 	if resp.StatusCode != http.StatusOK {
-		s.logger.Warn("Instagram token exchange failed",
+		s.logger.Warn("Facebook token exchange failed",
 			zap.Int("status_code", resp.StatusCode),
 			zap.String("response", string(body)),
 		)
-		return nil, fmt.Errorf("instagram API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response
@@ -245,10 +256,10 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 	return &tokenResp, nil
 }
 
-// getUserInfo fetches user information from Instagram API
+// getUserInfo fetches user information from Facebook Graph API to find the linked Instagram Business Account
 func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoResponse, error) {
-	// Instagram user endpoint
-	userURL := fmt.Sprintf("https://graph.instagram.com/v18.0/me?fields=id,username&access_token=%s", url.QueryEscape(accessToken))
+	// Facebook accounts endpoint to get pages and linked instagram accounts
+	userURL := fmt.Sprintf("https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=%s", url.QueryEscape(accessToken))
 
 	resp, err := s.httpClient.Get(userURL)
 	if err != nil {
@@ -258,11 +269,11 @@ func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoRespon
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		s.logger.Warn("Failed to get user info from Instagram",
+		s.logger.Warn("Failed to get user info from Facebook",
 			zap.Int("status_code", resp.StatusCode),
 			zap.String("response", string(body)),
 		)
-		return nil, fmt.Errorf("instagram API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("facebook API returned status %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -270,12 +281,22 @@ func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoRespon
 		return nil, fmt.Errorf("failed to read user info response: %w", err)
 	}
 
-	var userInfo userInfoResponse
-	if err := json.Unmarshal(body, &userInfo); err != nil {
+	var accountsResp fbAccountsResponse
+	if err := json.Unmarshal(body, &accountsResp); err != nil {
 		return nil, fmt.Errorf("failed to parse user info: %w", err)
 	}
 
-	return &userInfo, nil
+	// Find the first Page that has a linked Instagram Business Account
+	for _, page := range accountsResp.Data {
+		if page.InstagramBusinessAccount.ID != "" {
+			return &userInfoResponse{
+				ID:       page.InstagramBusinessAccount.ID,
+				Username: page.InstagramBusinessAccount.Username,
+			}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no linked instagram business account found for this facebook user")
 }
 
 // encryptToken encrypts a token using AES-256-GCM

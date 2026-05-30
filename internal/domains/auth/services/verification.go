@@ -59,7 +59,7 @@ func (s *AuthServiceImpl) SendVerificationEmail(c *gin.Context, userID, email, u
 	}
 
 	// Send verification email
-	verificationLink := s.frontendURL + "/verify-email?token=" + token
+	verificationLink := s.frontendURL + "/auth/verify-email?token=" + token
 	if s.emailService != nil {
 		if emailErr := s.emailService.SendVerification(email, username, verificationLink); emailErr != nil {
 			s.logger.Error("Failed to send verification email",

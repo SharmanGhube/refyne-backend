@@ -71,7 +71,7 @@ func (s *instagramOAuthService) GenerateAuthURL(state string) string {
 	params := url.Values{}
 	params.Set("client_id", s.config.AppID)
 	params.Set("redirect_uri", s.config.OAuthRedirectURI)
-	params.Set("scope", "instagram_business_basic,instagram_business_content_publish")
+	params.Set("scope", "instagram_business_basic,instagram_business_content_publish,instagram_manage_messages")
 	params.Set("response_type", "code")
 	params.Set("state", state)
 

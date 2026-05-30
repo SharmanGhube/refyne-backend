@@ -1,11 +1,15 @@
-# Environment variables
+# ── Environment & Secrets ─────────────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.dev
+.env.production
+.env.staging
 
-# Binaries and build artifacts
+# ── Binaries and Build Artifacts ──────────────────────────────
 bin/
 refyne-backend
+cmd.exe
 *.exe
 *.exe~
 *.dll
@@ -13,54 +17,54 @@ refyne-backend
 *.dylib
 dist/
 
-# Environment overrides with secrets
-.env.dev
-
-# Logs
+# ── Logs ──────────────────────────────────────────────────────
 /logs
 *.log
 
-# Wire generated files
-wire_gen.go
+# ── Wire Generated Files ──────────────────────────────────────
+# Uncomment the next line if you want to exclude wire_gen.go
+# wire_gen.go
 
-# Test binaries and coverage
+# ── Test Binaries and Coverage ────────────────────────────────
 *.test
 *.out
 coverage.txt
 coverage.html
 
-# Dependencies
+# ── Go Workspace & Dependencies ───────────────────────────────
 vendor/
-
-# Go workspace
 go.work
+go.work.sum
 
-# IDE and editor files
+# ── IDE and Editor Files ──────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# ── OS Generated Files ────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .directory
 
-# Temporary files
+# ── Temporary Files ───────────────────────────────────────────
 tmp/
 temp/
 *.tmp
 
-# Database files
+# ── Database Files ────────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 
-# Local Docker volume data (bind mounts)
+# ── Local Docker Volume Data (bind mounts) ────────────────────
 DBdata/
 pgadmin_data/
 redisinsight_data/
 redis_data/
 grafana_data/
 prometheus_data/
+
+# ── Documentation (internal/dev only, not for public repo) ────
+docs/

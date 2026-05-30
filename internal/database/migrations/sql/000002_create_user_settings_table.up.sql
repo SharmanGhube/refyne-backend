@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_settings_created_at ON user_settings(created_at);
 
 -- Create trigger for updating updated_at timestamp
+DROP TRIGGER IF EXISTS update_user_settings_updated_at ON user_settings;
 CREATE TRIGGER update_user_settings_updated_at 
     BEFORE UPDATE ON user_settings 
     FOR EACH ROW 

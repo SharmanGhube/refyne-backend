@@ -143,14 +143,16 @@ func (h *AuthHandlerImpl) VerifyOTP(c *gin.Context) {
 
 	// Prepare user response (exclude sensitive data)
 	userResponse := gin.H{
-		"id":          user.ID,
-		"email":       user.Email,
-		"username":    user.Username,
-		"first_name":  user.FirstName,
-		"last_name":   user.LastName,
-		"status":      user.Status,
-		"is_active":   user.IsActive,
-		"is_verified": user.IsVerified,
+		"id":                   user.ID,
+		"email":                user.Email,
+		"username":             user.Username,
+		"first_name":           user.FirstName,
+		"last_name":            user.LastName,
+		"status":               user.Status,
+		"is_active":            user.IsActive,
+		"is_verified":          user.IsVerified,
+		"onboarding_completed": user.OnboardingCompleted,
+		"created_at":           user.CreatedAt,
 	}
 
 	// Set refresh token as httpOnly cookie (not accessible via JS)

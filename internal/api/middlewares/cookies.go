@@ -18,6 +18,11 @@ const (
 func SetRefreshTokenCookie(c *gin.Context, refreshToken string, expiry time.Duration) {
 	secure := os.Getenv("APP_ENV") == "production"
 
+	sameSite := http.SameSiteLaxMode
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    refreshToken,
@@ -25,13 +30,18 @@ func SetRefreshTokenCookie(c *gin.Context, refreshToken string, expiry time.Dura
 		MaxAge:   int(expiry.Seconds()), // e.g. 7 days
 		HttpOnly: true,                  // Not accessible via JS — critical for XSS protection
 		Secure:   secure,                // Only sent over HTTPS in production
-		SameSite: http.SameSiteLaxMode,  // CSRF protection
+		SameSite: sameSite,              // CSRF protection
 	})
 }
 
 // ClearRefreshTokenCookie removes the refresh token cookie.
 func ClearRefreshTokenCookie(c *gin.Context) {
 	secure := os.Getenv("APP_ENV") == "production"
+
+	sameSite := http.SameSiteLaxMode
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     RefreshTokenCookieName,
@@ -40,7 +50,7 @@ func ClearRefreshTokenCookie(c *gin.Context) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSite,
 	})
 }
 

@@ -16,7 +16,12 @@ func CORSMiddleware() gin.HandlerFunc {
 		allowedOrigins := getAllowedOrigins()
 
 		if isOriginAllowed(origin, allowedOrigins) {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			// Always reflect the actual origin back — browsers reject credentials + wildcard "*"
+			if origin != "" {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			} else {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+			}
 			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 
@@ -64,6 +69,7 @@ func getAllowedOrigins() []string {
 		"https://refyne.app",
 		"https://www.refyne.me",
 		"https://app.refyne.me",
+		"https://refyne-frontend.vercel.app",
 	}
 }
 

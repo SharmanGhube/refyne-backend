@@ -161,24 +161,12 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 	}
 
 	encryptedRefreshToken := ""
-	if tokenResp.RefreshToken != "" {
-		encRefresh, encErr := s.encryptToken(tokenResp.RefreshToken)
-		if encErr != nil {
-			s.logger.Error("Failed to encrypt refresh token", zap.Error(encErr))
-			return nil, errors.NewAppError(
-				c,
-				"TOKEN_ENCRYPTION_FAILED",
-				"Failed to encrypt refresh token",
-				errors.ErrorTypeInternal,
-				errors.SeverityHigh,
-				"instagram",
-			)
-		}
-		encryptedRefreshToken = encRefresh
-	}
 
-	// Instagram long-lived tokens expire in 60 days
+	// Facebook Graph API long-lived tokens expire in 60 days
 	tokenExpiresAt := time.Now().AddDate(0, 0, 60)
+	if tokenResp.ExpiresIn > 0 {
+		tokenExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+	}
 
 	// Create account input
 	accountInput := &models.CreateInstagramAccountInput{

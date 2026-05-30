@@ -72,7 +72,7 @@ func (s *instagramOAuthService) GenerateAuthURL(state string) string {
 	params.Set("client_id", s.config.AppID)
 	params.Set("redirect_uri", s.config.OAuthRedirectURI)
 	// Facebook Login scopes required to manage Instagram DMs and Comments
-	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement,pages_manage_metadata")
+	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement")
 	params.Set("response_type", "code")
 	params.Set("state", state)
 

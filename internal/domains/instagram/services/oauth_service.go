@@ -284,6 +284,9 @@ func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoRespon
 		}
 	}
 
+	s.logger.Warn("No instagram business account found in Facebook response",
+		zap.String("response_body", string(body)),
+	)
 	return nil, fmt.Errorf("no linked instagram business account found for this facebook user")
 }
 

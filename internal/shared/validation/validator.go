@@ -13,8 +13,8 @@ import (
 // Common validation patterns
 var (
 	EmailRegex    = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-	UsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{3,30}$`)
-	NameRegex     = regexp.MustCompile(`^[a-zA-Z\s\-']{1,50}$`)
+	UsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_.-]{3,30}$`)
+	NameRegex     = regexp.MustCompile(`^[a-zA-Z\s\-'.]{1,50}$`)
 	UUIDRegex     = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 	// Dangerous patterns for XSS detection
@@ -78,7 +78,7 @@ func (v *Validator) ValidateUsername(username string) *ValidationError {
 	}
 
 	if !UsernameRegex.MatchString(username) {
-		return &ValidationError{Field: "username", Message: "Username can only contain letters, numbers, and underscores"}
+		return &ValidationError{Field: "username", Message: "Username can only contain letters, numbers, underscores, periods, and hyphens"}
 	}
 
 	return nil

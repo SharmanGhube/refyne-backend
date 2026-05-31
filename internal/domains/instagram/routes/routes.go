@@ -21,9 +21,6 @@ func SetupInstagramRoutes(router *gin.RouterGroup, registry *handlerregistry.Han
 	// Public routes (no auth required)
 	public := router.Group("")
 	{
-		// OAuth callback (redirect from Instagram)
-		public.GET("/instagram/auth/callback", handler.OAuthCallback)
-
 		// Webhook receiver (no auth required - signature verification handled in handler)
 		public.GET("/instagram/webhooks", handler.HandleWebhook)
 		public.POST("/instagram/webhooks", handler.HandleWebhook)
@@ -36,6 +33,7 @@ func SetupInstagramRoutes(router *gin.RouterGroup, registry *handlerregistry.Han
 	{
 		// OAuth connection
 		protected.POST("/instagram/auth/connect", handler.ConnectAccount)
+		protected.POST("/instagram/auth/callback", handler.OAuthCallback)
 		protected.POST("/instagram/auth/disconnect", handler.DisconnectAccount)
 
 		// Account management

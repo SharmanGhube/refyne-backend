@@ -90,15 +90,30 @@ func (h *InstagramHandler) ConnectAccount(c *gin.Context) {
 }
 
 // OAuthCallback handles the OAuth callback from Instagram
-// GET /api/instagram/auth/callback?code=...&state=...
+// POST /api/instagram/auth/callback  { "code": "...", "state": "..." }
 func (h *InstagramHandler) OAuthCallback(c *gin.Context) {
-	code := c.Query("code")
-	state := c.Query("state")
 	userID := c.GetString("userID") // From auth middleware
 
 	if userID == "" {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
+	}
+
+	// Support both JSON body (from frontend) and query params (legacy redirect)
+	var code, state string
+
+	// Try JSON body first
+	var body struct {
+		Code  string `json:"code"`
+		State string `json:"state"`
+	}
+	if err := c.ShouldBindJSON(&body); err == nil && body.Code != "" {
+		code = body.Code
+		state = body.State
+	} else {
+		// Fallback to query params
+		code = c.Query("code")
+		state = c.Query("state")
 	}
 
 	if code == "" {
@@ -108,7 +123,6 @@ func (h *InstagramHandler) OAuthCallback(c *gin.Context) {
 	}
 
 	// Handle callback
-	// TODO: Implement full token exchange in Phase 2
 	account, err := h.oauthService.HandleCallback(c, userID, code, state)
 	if err != nil {
 		h.logger.Error("OAuth callback failed", zap.Error(err))

@@ -13,6 +13,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/services"
 	riverqueue "github.com/refynehq/refyne-backend/internal/shared/river"
+	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
@@ -92,7 +93,7 @@ func (h *InstagramHandler) ConnectAccount(c *gin.Context) {
 // OAuthCallback handles the OAuth callback from Instagram
 // POST /api/instagram/auth/callback  { "code": "...", "state": "..." }
 func (h *InstagramHandler) OAuthCallback(c *gin.Context) {
-	userID := c.GetString("userID") // From auth middleware
+	userID, _ := middlewares.GetUserID(c)
 
 	if userID == "" {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -156,7 +157,7 @@ func (h *InstagramHandler) DisconnectAccount(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID") // From auth middleware
+	userID, _ := middlewares.GetUserID(c)
 	if userID == "" {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
@@ -181,7 +182,7 @@ func (h *InstagramHandler) DisconnectAccount(c *gin.Context) {
 // ListAccounts lists all Instagram accounts for the authenticated user
 // GET /api/instagram/accounts
 func (h *InstagramHandler) ListAccounts(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	if userID == "" {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
@@ -215,7 +216,7 @@ func (h *InstagramHandler) ListAccounts(c *gin.Context) {
 // GET /api/instagram/accounts/:id
 func (h *InstagramHandler) GetAccount(c *gin.Context) {
 	accountID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	if accountID == "" {
 		c.JSON(400, gin.H{"error": "Account ID is required"})
@@ -264,7 +265,7 @@ func (h *InstagramHandler) GetAccount(c *gin.Context) {
 // GetMedia retrieves synced media for authenticated user
 // GET /api/instagram/media
 func (h *InstagramHandler) GetMedia(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	accountID := c.Query("account_id")
 	limitStr := c.DefaultQuery("limit", "20")
 	offsetStr := c.DefaultQuery("offset", "0")
@@ -332,7 +333,7 @@ func (h *InstagramHandler) GetMedia(c *gin.Context) {
 // GET /api/instagram/media/:id
 func (h *InstagramHandler) GetMediaByID(c *gin.Context) {
 	mediaID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	if mediaID == "" {
 		c.JSON(400, gin.H{"error": "Media ID is required"})
@@ -378,7 +379,7 @@ func (h *InstagramHandler) GetMediaByID(c *gin.Context) {
 // GET /api/instagram/media/:id/ai
 func (h *InstagramHandler) GetMediaRecommendations(c *gin.Context) {
 	mediaID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	if mediaID == "" {
 		c.JSON(400, gin.H{"error": "Media ID is required"})
@@ -424,7 +425,7 @@ func (h *InstagramHandler) GetMediaRecommendations(c *gin.Context) {
 // GetAccountAnalytics retrieves account-level analytics
 // GET /api/instagram/analytics
 func (h *InstagramHandler) GetAccountAnalytics(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	accountID := c.Query("account_id")
 	daysStr := c.DefaultQuery("days", "30")
 
@@ -484,7 +485,7 @@ func (h *InstagramHandler) GetAccountAnalytics(c *gin.Context) {
 // GetMediaAnalytics retrieves media-level analytics
 // GET /api/instagram/analytics/media
 func (h *InstagramHandler) GetMediaAnalytics(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	accountID := c.Query("account_id")
 	limitStr := c.DefaultQuery("limit", "10")
 
@@ -546,7 +547,7 @@ func (h *InstagramHandler) GetMediaAnalytics(c *gin.Context) {
 // GetAnalyticsTrends retrieves analytics trends
 // GET /api/instagram/analytics/trends
 func (h *InstagramHandler) GetAnalyticsTrends(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	accountID := c.Query("account_id")
 	daysStr := c.DefaultQuery("days", "30")
 	granularity := c.DefaultQuery("granularity", "daily") // daily, weekly, monthly
@@ -652,7 +653,7 @@ func (h *InstagramHandler) GenerateCaptions(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	// Verify account ownership
 	account, appErr := h.accountRepo.GetAccountByID(c, req.AccountID)
@@ -705,7 +706,7 @@ func (h *InstagramHandler) GenerateHashtags(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	// Verify account ownership
 	account, appErr := h.accountRepo.GetAccountByID(c, req.AccountID)
@@ -736,7 +737,7 @@ func (h *InstagramHandler) GenerateHashtags(c *gin.Context) {
 // GET /api/instagram/ai/posting-time
 func (h *InstagramHandler) GetPostingStrategy(c *gin.Context) {
 	accountID := c.Query("account_id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	if accountID == "" {
 		c.JSON(400, gin.H{"error": "account_id is required"})
@@ -801,7 +802,7 @@ func (h *InstagramHandler) ManualSync(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	// Verify account ownership
 	account, err := h.accountRepo.GetAccountByID(c, req.AccountID)
@@ -866,7 +867,7 @@ func (h *InstagramHandler) ManualAnalyze(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	// Verify account ownership
 	account, err := h.accountRepo.GetAccountByID(c, req.AccountID)

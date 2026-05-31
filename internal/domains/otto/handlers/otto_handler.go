@@ -8,6 +8,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/otto/models"
 	"github.com/refynehq/refyne-backend/internal/domains/otto/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/otto/services"
+	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
 )
@@ -49,7 +50,7 @@ func (h *OttoHandler) CreateConversation(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	workspaceID := c.Query("workspace_id")
 
 	if userID == "" || workspaceID == "" {
@@ -89,7 +90,7 @@ func (h *OttoHandler) CreateConversation(c *gin.Context) {
 // ListConversations lists all conversations for the user
 // GET /api/otto/conversations?workspace_id=...&limit=20&offset=0
 func (h *OttoHandler) ListConversations(c *gin.Context) {
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	workspaceID := c.Query("workspace_id")
 	limitStr := c.DefaultQuery("limit", "20")
 	offsetStr := c.DefaultQuery("offset", "0")
@@ -138,7 +139,7 @@ func (h *OttoHandler) ListConversations(c *gin.Context) {
 // GET /api/otto/conversations/:id
 func (h *OttoHandler) GetConversation(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	if conversationID == "" {
 		c.JSON(400, gin.H{"error": "Conversation ID is required"})
@@ -178,7 +179,7 @@ func (h *OttoHandler) GetConversation(c *gin.Context) {
 // PUT /api/otto/conversations/:id
 func (h *OttoHandler) UpdateConversation(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	var req models.UpdateOttoConversationInput
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -216,7 +217,7 @@ func (h *OttoHandler) UpdateConversation(c *gin.Context) {
 // POST /api/otto/conversations/:id/archive
 func (h *OttoHandler) ArchiveConversation(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	conversation, err := h.conversationService.GetConversation(c, conversationID)
 	if err != nil {
@@ -248,7 +249,7 @@ func (h *OttoHandler) ArchiveConversation(c *gin.Context) {
 // POST /api/otto/conversations/:id/bookmark
 func (h *OttoHandler) BookmarkConversation(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	type BookmarkRequest struct {
 		IsBookmarked bool `json:"is_bookmarked" binding:"required"`
@@ -290,7 +291,7 @@ func (h *OttoHandler) BookmarkConversation(c *gin.Context) {
 // DELETE /api/otto/conversations/:id
 func (h *OttoHandler) DeleteConversation(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	conversation, err := h.conversationService.GetConversation(c, conversationID)
 	if err != nil {
@@ -322,7 +323,7 @@ func (h *OttoHandler) DeleteConversation(c *gin.Context) {
 // POST /api/otto/conversations/:id/messages
 func (h *OttoHandler) SendMessage(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	type MessageRequest struct {
 		Content string `json:"content" binding:"required,max=5000"`
@@ -408,7 +409,7 @@ func (h *OttoHandler) SendMessage(c *gin.Context) {
 // GET /api/otto/conversations/:id/messages
 func (h *OttoHandler) GetMessages(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 	limitStr := c.DefaultQuery("limit", "50")
 	offsetStr := c.DefaultQuery("offset", "0")
 
@@ -497,7 +498,7 @@ func (h *OttoHandler) AddMessageFeedback(c *gin.Context) {
 // GET /api/otto/conversations/:id/context
 func (h *OttoHandler) GetConversationContext(c *gin.Context) {
 	conversationID := c.Param("id")
-	userID := c.GetString("userID")
+	userID, _ := middlewares.GetUserID(c)
 
 	conversation, err := h.conversationService.GetConversation(c, conversationID)
 	if err != nil {

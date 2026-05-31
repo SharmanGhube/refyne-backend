@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 )
 
 var (
@@ -64,7 +65,7 @@ func TestGetAccount(t *testing.T) {
 
 	router.GET("/api/instagram/accounts/:id", func(c *gin.Context) {
 		accountID := c.Param("id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID != testAccountID {
 			c.JSON(404, gin.H{"error": "Account not found"})
@@ -109,7 +110,7 @@ func TestGetMedia(t *testing.T) {
 
 	router.GET("/api/instagram/media", func(c *gin.Context) {
 		accountID := c.Query("account_id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID == "" {
 			c.JSON(400, gin.H{"error": "account_id is required"})
@@ -156,7 +157,7 @@ func TestGetMediaByID(t *testing.T) {
 
 	router.GET("/api/instagram/media/:id", func(c *gin.Context) {
 		mediaID := c.Param("id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if mediaID != testMediaID {
 			c.JSON(404, gin.H{"error": "Media not found"})
@@ -200,7 +201,7 @@ func TestGetAccountAnalytics(t *testing.T) {
 
 	router.GET("/api/instagram/analytics", func(c *gin.Context) {
 		accountID := c.Query("account_id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID == "" {
 			c.JSON(400, gin.H{"error": "account_id is required"})
@@ -249,7 +250,7 @@ func TestGetMediaAnalytics(t *testing.T) {
 
 	router.GET("/api/instagram/analytics/media", func(c *gin.Context) {
 		accountID := c.Query("account_id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID == "" {
 			c.JSON(400, gin.H{"error": "account_id is required"})
@@ -298,7 +299,7 @@ func TestGetAnalyticsTrends(t *testing.T) {
 	router.GET("/api/instagram/analytics/trends", func(c *gin.Context) {
 		accountID := c.Query("account_id")
 		granularity := c.DefaultQuery("granularity", "daily")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID == "" {
 			c.JSON(400, gin.H{"error": "account_id is required"})
@@ -461,7 +462,7 @@ func TestGetPostingStrategy(t *testing.T) {
 
 	router.GET("/api/instagram/ai/posting-time", func(c *gin.Context) {
 		accountID := c.Query("account_id")
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 
 		if accountID == "" {
 			c.JSON(400, gin.H{"error": "account_id is required"})
@@ -616,7 +617,7 @@ func TestAuthorizationForbidden(t *testing.T) {
 	})
 
 	router.GET("/api/instagram/accounts/:id", func(c *gin.Context) {
-		userID := c.GetString("userID")
+		userID, _ := middlewares.GetUserID(c)
 		accountID := c.Param("id")
 
 		if accountID == testAccountID && userID != testUserID {

@@ -133,6 +133,23 @@ func (h *InstagramHandler) OAuthCallback(c *gin.Context) {
 
 	h.logger.Info("OAuth callback successful", zap.String("account_id", account.ID))
 
+	// Immediately queue an initial sync for the new account so the dashboard populates!
+	jobArgs := jobs.SyncMediaArgs{
+		AccountID: account.ID,
+		SyncType:  "full", // Do a full initial sync
+		Force:     true,   // Force it regardless of recent syncs
+	}
+	
+	jobCtx, cancel := context.WithTimeout(c, 5*time.Second)
+	defer cancel()
+	
+	if _, errQueue := h.riverService.GetClient().Insert(jobCtx, jobArgs, nil); errQueue != nil {
+		h.logger.Error("Failed to queue initial sync job", zap.Error(errQueue), zap.String("account_id", account.ID))
+		// We don't fail the request here, as the OAuth itself succeeded
+	} else {
+		h.logger.Info("Initial sync job queued successfully", zap.String("account_id", account.ID))
+	}
+
 	c.JSON(200, gin.H{
 		"status": "ok",
 		"data": gin.H{

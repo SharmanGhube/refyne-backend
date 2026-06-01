@@ -34,6 +34,7 @@ type WorkerDependancies struct {
 	FetchInsightsWorker    *instagramJobs.FetchInsightsWorker
 	RefreshTokenWorker     *instagramJobs.RefreshTokenWorker
 	ProcessAIWorker        *instagramJobs.ProcessAIWorker
+	DailySyncWorker        *instagramJobs.DailySyncWorker
 }
 
 // I have no idea what the fuck is going on here
@@ -104,6 +105,10 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 		river.AddWorker(workers, deps.ProcessAIWorker)
 		logger.Info("Registered Process AI Worker")
 	}
+	if deps.DailySyncWorker != nil {
+		river.AddWorker(workers, deps.DailySyncWorker)
+		logger.Info("Registered Daily Sync Worker")
+	}
 
 	logger.Info("Registered River Workers")
 
@@ -112,10 +117,15 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 	// - SyncMediaWorker: Manual API call or external scheduler (30min interval)
 	// - FetchInsightsWorker: Manual API call or external scheduler (daily)
 	// - RefreshTokenWorker: Manual API call or external scheduler (50-day interval)
-	periodicJobs := []*river.PeriodicJob{}
-
-	// TODO: In production, use external scheduler (cron, AWS EventBridge, etc.)
-	// or implement internal scheduler with go-cron package
+	periodicJobs := []*river.PeriodicJob{
+		river.NewPeriodicJob(
+			river.PeriodicInterval(24*time.Hour),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return instagramJobs.DailySyncArgs{}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: false},
+		),
+	}
 
 	// Create River client
 	riverClient, err := river.NewClient(
@@ -137,6 +147,15 @@ func NewRiverService(dbPool *pgxpool.Pool, deps *WorkerDependancies) (*RiverServ
 		ctx:    ctx,
 		cancel: cancel,
 		logger: logger,
+	}
+
+	// Inject the client back into workers that need it to queue jobs
+	anyClient := service.GetClient()
+	if deps.InstagramWebhookWorker != nil {
+		deps.InstagramWebhookWorker.SetRiverClient(anyClient)
+	}
+	if deps.DailySyncWorker != nil {
+		deps.DailySyncWorker.SetRiverClient(anyClient)
 	}
 
 	logger.Info("River service initialized successfully")

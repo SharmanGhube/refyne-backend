@@ -5,12 +5,27 @@ import (
 
 	"github.com/google/wire"
 	emailJobs "github.com/refynehq/refyne-backend/internal/domains/email/jobs"
+	instagramJobs "github.com/refynehq/refyne-backend/internal/domains/instagram/jobs"
 	"github.com/riverqueue/river"
 )
 
-func NewWorkerDependancies(emailWorker *emailJobs.EmailWorker) *WorkerDependancies {
+func NewWorkerDependancies(
+	emailWorker *emailJobs.EmailWorker,
+	webhookWorker *instagramJobs.InstagramWebhookWorker,
+	syncMediaWorker *instagramJobs.SyncMediaWorker,
+	fetchInsightsWorker *instagramJobs.FetchInsightsWorker,
+	refreshTokenWorker *instagramJobs.RefreshTokenWorker,
+	processAIWorker *instagramJobs.ProcessAIWorker,
+	dailySyncWorker *instagramJobs.DailySyncWorker,
+) *WorkerDependancies {
 	return &WorkerDependancies{
-		EmailWorker: emailWorker,
+		EmailWorker:            emailWorker,
+		InstagramWebhookWorker: webhookWorker,
+		SyncMediaWorker:        syncMediaWorker,
+		FetchInsightsWorker:    fetchInsightsWorker,
+		RefreshTokenWorker:     refreshTokenWorker,
+		ProcessAIWorker:        processAIWorker,
+		DailySyncWorker:        dailySyncWorker,
 	}
 }
 

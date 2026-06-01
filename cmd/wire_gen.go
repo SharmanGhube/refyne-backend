@@ -24,6 +24,7 @@ import (
 	"github.com/refynehq/refyne-backend/internal/domains/instagram"
 	config2 "github.com/refynehq/refyne-backend/internal/domains/instagram/config"
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/handlers"
+	jobs2 "github.com/refynehq/refyne-backend/internal/domains/instagram/jobs"
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/services"
 	"github.com/refynehq/refyne-backend/internal/domains/notification"
@@ -78,18 +79,46 @@ func InitializeApp() (*bootstrap.App, error) {
 		return nil, err
 	}
 	emailWorker := jobs.NewEmailWorker(emailService)
-	workerDependancies := riverqueue.NewWorkerDependancies(emailWorker)
+	logger := logging.NewLogger()
+	geminiConfig, err := config2.NewGeminiConfig(logger)
+	if err != nil {
+		return nil, err
+	}
+	geminiService := services.NewGeminiService(geminiConfig)
+	instagramConfig, err := config2.NewInstagramConfig(logger)
+	if err != nil {
+		return nil, err
+	}
+	instagramAccountRepository := repository.NewInstagramAccountRepository(db)
+	instagramOAuthService := services.NewInstagramOAuthService(instagramConfig, instagramAccountRepository, db)
+	client, err := redis.NewRedisClient(configConfig)
+	if err != nil {
+		return nil, err
+	}
+	redisClient := redis.ProvideRedisClient(client)
+	rateLimitChecker := services.NewRateLimitChecker(redisClient)
+	instagramMediaService := services.NewInstagramMediaService(instagramConfig, instagramOAuthService, rateLimitChecker, redisClient)
+	instagramWebhookWorker := jobs2.NewInstagramWebhookWorker(geminiService, instagramMediaService, instagramOAuthService)
+	instagramMediaRepository := repository.NewInstagramMediaRepository(db)
+	syncMediaWorker := jobs2.NewSyncMediaWorker(instagramMediaService, instagramMediaRepository, instagramAccountRepository, rateLimitChecker, redisClient, db)
+	instagramInsightsService := services.NewInstagramInsightsService(instagramConfig, rateLimitChecker)
+	instagramInsightsRepository := repository.NewInstagramInsightsRepository(db)
+	fetchInsightsWorker := jobs2.NewFetchInsightsWorker(instagramInsightsService, instagramInsightsRepository, db)
+	refreshTokenWorker := jobs2.NewRefreshTokenWorker(instagramOAuthService, instagramAccountRepository, db)
+	instagramAIRepository := repository.NewInstagramAIRepository(db)
+	processAIWorker := jobs2.NewProcessAIWorker(geminiService, instagramAIRepository)
+	dailySyncWorker := jobs2.NewDailySyncWorker(db)
+	workerDependancies := riverqueue.NewWorkerDependancies(emailWorker, instagramWebhookWorker, syncMediaWorker, fetchInsightsWorker, refreshTokenWorker, processAIWorker, dailySyncWorker)
 	riverService, err := riverqueue.NewRiverService(pool, workerDependancies)
 	if err != nil {
 		return nil, err
 	}
-	client := riverqueue.ProvideRiverClientAny(riverService)
+	riverClient := riverqueue.ProvideRiverClientAny(riverService)
 	auditLogger := audit.ProvideAuditLogger(db)
-	logger := logging.NewLogger()
 	deviceSessionService := device.NewDeviceSessionService(db, logger)
 	validator := validation.NewValidator()
 	string2 := auth2.ProvideFrontendURL(configConfig)
-	authService := auth3.NewAuthService(coreUserRepository, passwordResetRepository, verificationRepository, accountSecurityRepository, emailService, client, auditLogger, deviceSessionService, validator, string2)
+	authService := auth3.NewAuthService(coreUserRepository, passwordResetRepository, verificationRepository, accountSecurityRepository, emailService, riverClient, auditLogger, deviceSessionService, validator, string2)
 	authHandler := auth4.NewAuthHandler(authService)
 	authRegistry := auth2.NewAuthRegistry(authHandler)
 	settingsRepository := user2.NewSettingsRepository(db)
@@ -99,30 +128,8 @@ func InitializeApp() (*bootstrap.App, error) {
 	aiRegistry := ai.NewAIRegistry()
 	contextRegistry := context.NewContextRegistry()
 	emailRegistry := email.NewEmailRegistry()
-	instagramConfig, err := config2.NewInstagramConfig(logger)
-	if err != nil {
-		return nil, err
-	}
-	instagramAccountRepository := repository.NewInstagramAccountRepository(db)
-	instagramOAuthService := services.NewInstagramOAuthService(instagramConfig, instagramAccountRepository, db)
-	redisClient, err := redis.NewRedisClient(configConfig)
-	if err != nil {
-		return nil, err
-	}
-	client2 := redis.ProvideRedisClient(redisClient)
-	webhookDeduplicator := services.NewWebhookDeduplicator(client2)
-	rateLimitChecker := services.NewRateLimitChecker(client2)
+	webhookDeduplicator := services.NewWebhookDeduplicator(redisClient)
 	instagramWebhookService := services.NewInstagramWebhookService(instagramConfig)
-	instagramMediaService := services.NewInstagramMediaService(instagramConfig, instagramOAuthService, rateLimitChecker, client2)
-	instagramInsightsService := services.NewInstagramInsightsService(instagramConfig, rateLimitChecker)
-	geminiConfig, err := config2.NewGeminiConfig(logger)
-	if err != nil {
-		return nil, err
-	}
-	geminiService := services.NewGeminiService(geminiConfig)
-	instagramMediaRepository := repository.NewInstagramMediaRepository(db)
-	instagramInsightsRepository := repository.NewInstagramInsightsRepository(db)
-	instagramAIRepository := repository.NewInstagramAIRepository(db)
 	instagramHandler := handlers.NewInstagramHandler(instagramOAuthService, webhookDeduplicator, rateLimitChecker, instagramWebhookService, instagramMediaService, instagramInsightsService, geminiService, instagramConfig, riverService, instagramAccountRepository, instagramMediaRepository, instagramInsightsRepository, instagramAIRepository)
 	instagramRegistry := instagram.NewInstagramRegistry(instagramHandler)
 	notificationRegistry := notification.NewNotificationRegistry()
@@ -135,7 +142,7 @@ func InitializeApp() (*bootstrap.App, error) {
 	workspaceRepository := repository3.NewWorkspaceRepository(db)
 	workspaceMemberRepository := repository3.NewWorkspaceMemberRepository(db)
 	workspaceService := services3.NewWorkspaceService(workspaceRepository, workspaceMemberRepository)
-	memberService := services3.NewMemberService(workspaceRepository, workspaceMemberRepository, client, configConfig)
+	memberService := services3.NewMemberService(workspaceRepository, workspaceMemberRepository, riverClient, configConfig)
 	workspaceHandler := handler.NewWorkspaceHandler(workspaceService, memberService)
 	workspaceRegistry := workspace.NewWorkspaceRegistry(workspaceHandler)
 	paddleConfig, err := config3.NewPaddleConfig(logger)
@@ -151,8 +158,8 @@ func InitializeApp() (*bootstrap.App, error) {
 	subscriptionHandler := handler2.NewSubscriptionHandler(paddleService, webhookService, subscriptionRepository)
 	subscriptionRegistry := subscription.NewSubscriptionRegistry(subscriptionHandler)
 	handlerRegistry := handlerregistry.NewHandlerRegistry(authRegistry, userRegistry, aiRegistry, contextRegistry, emailRegistry, instagramRegistry, notificationRegistry, ottoRegistry, workspaceRegistry, subscriptionRegistry)
-	engine := api.NewRouter(handlerRegistry, db, client2)
-	app, err := bootstrap.NewApp(configConfig, db, pool, engine, logger, riverService, client2)
+	engine := api.NewRouter(handlerRegistry, db, redisClient)
+	app, err := bootstrap.NewApp(configConfig, db, pool, engine, logger, riverService, redisClient)
 	if err != nil {
 		return nil, err
 	}

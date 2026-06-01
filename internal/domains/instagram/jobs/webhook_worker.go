@@ -38,6 +38,7 @@ type InstagramWebhookWorker struct {
 	geminiService services.GeminiService
 	mediaService  services.InstagramMediaService
 	oauthService  services.InstagramOAuthService
+	riverClient   *river.Client[any]
 }
 
 // NewInstagramWebhookWorker creates a new webhook worker
@@ -52,6 +53,11 @@ func NewInstagramWebhookWorker(
 		mediaService:  mediaService,
 		oauthService:  oauthService,
 	}
+}
+
+// SetRiverClient injects the river client after initialization to avoid wire cycles
+func (w *InstagramWebhookWorker) SetRiverClient(client *river.Client[any]) {
+	w.riverClient = client
 }
 
 // Work processes the webhook event
@@ -131,14 +137,23 @@ func (w *InstagramWebhookWorker) processFeedChange(ctx context.Context, changeVa
 		return nil // Don't error on parse failure
 	}
 
-	w.logger.Info("Feed change detected",
+	w.logger.Info("Feed change detected, queueing sync",
 		zap.String("account_id", accountID),
 		zap.String("media_id", feedChange.MediaID),
 		zap.String("status", feedChange.Status),
 	)
 
-	// TODO: Queue media sync job
-	// This will fetch latest media and update cache
+	// Queue media sync job to fetch latest media and update cache
+	jobArgs := SyncMediaArgs{
+		AccountID: accountID,
+		SyncType:  "new",
+		Force:     true,
+	}
+	
+	if _, err := w.riverClient.Insert(ctx, jobArgs, nil); err != nil {
+		w.logger.Error("Failed to queue media sync job from webhook", zap.Error(err), zap.String("account_id", accountID))
+		return err
+	}
 
 	return nil
 }

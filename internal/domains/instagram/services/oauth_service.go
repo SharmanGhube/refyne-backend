@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -37,6 +38,9 @@ type InstagramOAuthService interface {
 
 	// DisconnectAccount disconnects an Instagram account
 	DisconnectAccount(c *gin.Context, accountID string) *errors.AppError
+
+	// GetDecryptedAccessToken returns the decrypted access token for an account
+	GetDecryptedAccessToken(ctx context.Context, accountID string) (string, error)
 }
 
 type instagramOAuthService struct {
@@ -373,6 +377,22 @@ func (s *instagramOAuthService) decryptToken(encryptedToken string) (string, err
 	}
 
 	return string(token), nil
+}
+
+// GetDecryptedAccessToken returns the decrypted access token for an account
+func (s *instagramOAuthService) GetDecryptedAccessToken(ctx context.Context, accountID string) (string, error) {
+	var encryptedToken string
+	query := "SELECT access_token FROM instagram_accounts WHERE id = $1 AND deleted_at IS NULL"
+	err := s.db.QueryRowContext(ctx, query, accountID).Scan(&encryptedToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to get account access token: %w", err)
+	}
+
+	if encryptedToken == "" {
+		return "", fmt.Errorf("account has no access token")
+	}
+
+	return s.decryptToken(encryptedToken)
 }
 
 // deriveEncryptionKey derives a 32-byte key from the app secret (for AES-256)

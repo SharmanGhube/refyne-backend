@@ -25,6 +25,9 @@ type GeminiService interface {
 
 	// GeneratePostingStrategy generates optimal posting recommendations
 	GeneratePostingStrategy(ctx context.Context, analysis *models.AIAnalysisResult, accountID string) (*models.PostingStrategy, error)
+
+	// ModerateComment analyzes a comment for toxic content
+	ModerateComment(ctx context.Context, text string) (*models.CommentModerationResult, error)
 }
 
 type geminiService struct {
@@ -175,13 +178,51 @@ Provide ONLY valid JSON for optimal posting strategy:
 		return nil, fmt.Errorf("failed to parse strategy: %w", err)
 	}
 
-	s.logger.Debug("Strategy generated",
-		zap.Float64("reach_multiplier", strategy.ReachedMultiplier),
-		zap.Int("trend_alignment", strategy.TrendAlignment),
+	s.logger.Debug("Posting strategy generated",
+		zap.Int("best_days_count", len(strategy.BestPostingDays)),
+		zap.Float64("predicted_multiplier", strategy.ReachedMultiplier),
 	)
 
 	return &strategy, nil
 }
+
+// ModerateComment analyzes a comment for toxic content
+func (s *geminiService) ModerateComment(ctx context.Context, text string) (*models.CommentModerationResult, error) {
+	prompt := fmt.Sprintf(`
+Analyze this Instagram comment for spam, hate speech, offensive language, toxicity, or severe negativity.
+
+Comment: "%s"
+
+Provide ONLY valid JSON without any markdown formatting:
+{
+  "is_flagged": true|false,
+  "reason": "Brief explanation of why it was flagged (or 'Clean' if not flagged)",
+  "action_recommended": "hide|delete|none"
+}
+
+Rule: Use "hide" for spam or mildly offensive content. Use "delete" for hate speech or severe toxicity. Use "none" if it is acceptable.
+`, text)
+
+	response, err := s.callGeminiAPI(ctx, prompt)
+	if err != nil {
+		s.logger.Error("Failed to call Gemini API for moderation", zap.Error(err))
+		return nil, fmt.Errorf("gemini api call failed: %w", err)
+	}
+
+	var result models.CommentModerationResult
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		s.logger.Error("Failed to parse Gemini moderation response", zap.Error(err), zap.String("response", response))
+		return nil, fmt.Errorf("failed to parse moderation response: %w", err)
+	}
+
+	s.logger.Debug("Comment moderated",
+		zap.Bool("is_flagged", result.IsFlagged),
+		zap.String("action", result.ActionRecommended),
+	)
+
+	return &result, nil
+}
+
 
 // callGeminiAPI makes a request to the Gemini API
 func (s *geminiService) callGeminiAPI(ctx context.Context, prompt string) (string, error) {

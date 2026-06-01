@@ -30,6 +30,9 @@ type InstagramMediaService interface {
 
 	// FetchMediaInsights fetches engagement metrics for media
 	FetchMediaInsights(ctx context.Context, accountID, accessToken, mediaID string) (*models.MediaInsights, error)
+
+	// HideComment hides or unhides a comment on Instagram
+	HideComment(ctx context.Context, accountID, accessToken, commentID string, hide bool) error
 }
 
 type instagramMediaService struct {
@@ -362,3 +365,48 @@ func parseTimestamp(timestamp string) time.Time {
 	}
 	return t
 }
+
+// HideComment hides or unhides a comment on Instagram
+func (s *instagramMediaService) HideComment(ctx context.Context, accountID, accessToken, commentID string, hide bool) error {
+	if accessToken == "" {
+		return fmt.Errorf("access token is required to hide comment")
+	}
+
+	// Instagram Graph API endpoint for comments: POST /{comment-id}
+	apiURL := fmt.Sprintf("https://graph.facebook.com/v19.0/%s", commentID)
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, nil)
+	if err != nil {
+		return err
+	}
+
+	q := req.URL.Query()
+	q.Add("hide", fmt.Sprintf("%t", hide))
+	q.Add("access_token", accessToken)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Error("Failed to call Instagram comment API", zap.Error(err), zap.String("comment_id", commentID))
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		s.logger.Error("Instagram comment API returned non-OK status",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("response", string(body)),
+		)
+		return fmt.Errorf("instagram comment api returned status %d", resp.StatusCode)
+	}
+
+	s.logger.Info("Comment visibility changed successfully",
+		zap.String("account_id", accountID),
+		zap.String("comment_id", commentID),
+		zap.Bool("hidden", hide),
+	)
+
+	return nil
+}
+

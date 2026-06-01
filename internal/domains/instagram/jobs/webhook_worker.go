@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/refynehq/refyne-backend/internal/domains/instagram/services"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/riverqueue/river"
 	"go.uber.org/zap"
@@ -33,13 +34,23 @@ func (InstagramWebhookArgs) Kind() string { return "instagram_webhook" }
 // InstagramWebhookWorker processes incoming Instagram webhook events
 type InstagramWebhookWorker struct {
 	river.WorkerDefaults[InstagramWebhookArgs]
-	logger *zap.Logger
+	logger        *zap.Logger
+	geminiService services.GeminiService
+	mediaService  services.InstagramMediaService
+	oauthService  services.InstagramOAuthService
 }
 
 // NewInstagramWebhookWorker creates a new webhook worker
-func NewInstagramWebhookWorker() *InstagramWebhookWorker {
+func NewInstagramWebhookWorker(
+	geminiService services.GeminiService,
+	mediaService services.InstagramMediaService,
+	oauthService services.InstagramOAuthService,
+) *InstagramWebhookWorker {
 	return &InstagramWebhookWorker{
-		logger: logging.GetJobLogger("InstagramWebhookWorker"),
+		logger:        logging.GetJobLogger("InstagramWebhookWorker"),
+		geminiService: geminiService,
+		mediaService:  mediaService,
+		oauthService:  oauthService,
 	}
 }
 
@@ -78,6 +89,10 @@ func (w *InstagramWebhookWorker) processEntry(ctx context.Context, entry EntryDa
 		case "feed":
 			// Media changed in feed (new post, edit, delete)
 			return w.processFeedChange(ctx, change.Value, entry.ID)
+
+		case "comments":
+			// Comment created, updated, deleted
+			return w.processCommentChange(ctx, change.Value, entry.ID)
 
 		case "story":
 			// Story-related event
@@ -164,3 +179,68 @@ func (w *InstagramWebhookWorker) processMessageChange(ctx context.Context, chang
 
 	return nil
 }
+
+// processCommentChange handles comment updates and performs AI moderation
+func (w *InstagramWebhookWorker) processCommentChange(ctx context.Context, changeValue json.RawMessage, accountID string) error {
+	var commentChange struct {
+		ID      string `json:"id"`
+		MediaID string `json:"media_id"`
+		Text    string `json:"text"`
+		From    struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+		} `json:"from"`
+	}
+
+	if err := json.Unmarshal(changeValue, &commentChange); err != nil {
+		w.logger.Warn("Failed to parse comment change", zap.Error(err))
+		return nil
+	}
+
+	w.logger.Info("Comment event received",
+		zap.String("account_id", accountID),
+		zap.String("comment_id", commentChange.ID),
+		zap.String("media_id", commentChange.MediaID),
+	)
+
+	if commentChange.Text == "" {
+		return nil // Nothing to moderate
+	}
+
+	// 1. Moderate comment with AI
+	moderationResult, err := w.geminiService.ModerateComment(ctx, commentChange.Text)
+	if err != nil {
+		w.logger.Error("Failed to moderate comment", zap.Error(err), zap.String("comment_id", commentChange.ID))
+		return nil // Don't block processing of other webhooks
+	}
+
+	// 2. Take action if flagged
+	if moderationResult.IsFlagged {
+		w.logger.Info("Comment flagged by AI",
+			zap.String("comment_id", commentChange.ID),
+			zap.String("reason", moderationResult.Reason),
+			zap.String("action", moderationResult.ActionRecommended),
+		)
+
+		if moderationResult.ActionRecommended == "hide" || moderationResult.ActionRecommended == "delete" {
+			// Get access token for account
+			accessToken, err := w.oauthService.GetDecryptedAccessToken(ctx, accountID)
+			if err != nil {
+				w.logger.Error("Failed to get access token for comment moderation", zap.Error(err), zap.String("account_id", accountID))
+				return nil
+			}
+
+			// For now we only hide, even if 'delete' was recommended (safer default)
+			// (You can change this logic later if you want to support DELETE)
+			err = w.mediaService.HideComment(ctx, accountID, accessToken, commentChange.ID, true)
+			if err != nil {
+				w.logger.Error("Failed to hide comment on Instagram", zap.Error(err), zap.String("comment_id", commentChange.ID))
+			} else {
+				w.logger.Info("Comment hidden successfully", zap.String("comment_id", commentChange.ID))
+			}
+		}
+	}
+
+	return nil
+}
+

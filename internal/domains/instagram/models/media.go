@@ -167,3 +167,10 @@ type AIRecommendations struct {
 	ExpiresAt            time.Time           `db:"expires_at" json:"expires_at"`
 	UpdatedAt            time.Time           `db:"updated_at" json:"updated_at"`
 }
+
+// CommentModerationResult represents the AI analysis of a comment
+type CommentModerationResult struct {
+	IsFlagged         bool   `json:"is_flagged"`
+	Reason            string `json:"reason"`
+	ActionRecommended string `json:"action_recommended"` // "hide", "delete", or "none"
+}

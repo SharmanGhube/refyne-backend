@@ -71,8 +71,8 @@ func (s *instagramOAuthService) GenerateAuthURL(state string) string {
 	params := url.Values{}
 	params.Set("client_id", s.config.AppID)
 	params.Set("redirect_uri", s.config.OAuthRedirectURI)
-	// Facebook Login scopes required to manage Instagram DMs and Comments
-	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement")
+	// Facebook Login scopes required to manage Instagram DMs and Comments, plus business_management in case the page is in a Business Portfolio
+	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement,business_management")
 	params.Set("response_type", "code")
 	params.Set("state", state)
 
@@ -241,6 +241,33 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 		return nil, fmt.Errorf("no access token in response")
 	}
 
+	// Step 2: Exchange the short-lived token for a long-lived token (60 days)
+	longLivedURL := "https://graph.facebook.com/v19.0/oauth/access_token"
+	llData := url.Values{}
+	llData.Set("grant_type", "fb_exchange_token")
+	llData.Set("client_id", s.config.AppID)
+	llData.Set("client_secret", s.config.AppSecret)
+	llData.Set("fb_exchange_token", tokenResp.AccessToken)
+
+	llResp, llErr := s.httpClient.Get(fmt.Sprintf("%s?%s", longLivedURL, llData.Encode()))
+	if llErr == nil {
+		defer llResp.Body.Close()
+		if llResp.StatusCode == http.StatusOK {
+			llBody, _ := io.ReadAll(llResp.Body)
+			var llTokenResp tokenExchangeResponse
+			if json.Unmarshal(llBody, &llTokenResp) == nil && llTokenResp.AccessToken != "" {
+				s.logger.Info("Successfully exchanged for long-lived Facebook token")
+				return &llTokenResp, nil
+			}
+		} else {
+			llBody, _ := io.ReadAll(llResp.Body)
+			s.logger.Warn("Failed to exchange for long-lived token", zap.String("response", string(llBody)))
+		}
+	} else {
+		s.logger.Warn("Failed request to exchange for long-lived token", zap.Error(llErr))
+	}
+
+	// Fallback to short-lived token if long-lived exchange failed
 	return &tokenResp, nil
 }
 

@@ -33,6 +33,7 @@ type InstagramHandler struct {
 	mediaRepo         repository.InstagramMediaRepository
 	insightsRepo      repository.InstagramInsightsRepository
 	aiRepo            repository.InstagramAIRepository
+	commentRepo       repository.InstagramCommentRepository
 	logger            *zap.Logger
 }
 
@@ -51,6 +52,7 @@ func NewInstagramHandler(
 	mediaRepo repository.InstagramMediaRepository,
 	insightsRepo repository.InstagramInsightsRepository,
 	aiRepo repository.InstagramAIRepository,
+	commentRepo repository.InstagramCommentRepository,
 ) *InstagramHandler {
 	return &InstagramHandler{
 		oauthService:    oauthService,
@@ -66,6 +68,7 @@ func NewInstagramHandler(
 		mediaRepo:       mediaRepo,
 		insightsRepo:    insightsRepo,
 		aiRepo:          aiRepo,
+		commentRepo:     commentRepo,
 		logger:          logging.GetHandlerLogger("InstagramHandler"),
 	}
 }
@@ -941,5 +944,89 @@ func (h *InstagramHandler) ManualAnalyze(c *gin.Context) {
 		"job_type":   "process_ai",
 		"media_id":   req.MediaID,
 		"account_id": req.AccountID,
+	})
+}
+
+// GetComments fetches moderated comments for an account
+// @Summary Get moderated comments
+// @Description Fetches comments that have been saved and moderated for an Instagram account
+// @Tags Instagram
+// @Accept json
+// @Produce json
+// @Param account_id path string true "Account ID"
+// @Success 200 {array} models.InstagramComment
+// @Router /instagram/accounts/{account_id}/comments [get]
+func (h *InstagramHandler) GetComments(c *gin.Context) {
+	accountID := c.Param("account_id")
+	if accountID == "" {
+		c.JSON(400, gin.H{"error": "Account ID is required"})
+		return
+	}
+
+	comments, err := h.commentRepo.GetCommentsByAccount(c.Request.Context(), accountID)
+	if err != nil {
+		h.logger.Error("Failed to fetch comments", zap.Error(err), zap.String("account_id", accountID))
+		c.JSON(500, gin.H{"error": "Failed to fetch comments"})
+		return
+	}
+
+	c.JSON(200, comments)
+}
+
+// ModerateCommentManually allows manual moderation of a comment
+// @Summary Moderate comment manually
+// @Description Manually hides or unhides a comment on Instagram
+// @Tags Instagram
+// @Accept json
+// @Produce json
+// @Param account_id path string true "Account ID"
+// @Param comment_id path string true "Comment ID"
+// @Param body body object{action=string} true "Action (hide, unhide)"
+// @Success 200 {object} object{status=string}
+// @Router /instagram/accounts/{account_id}/comments/{comment_id}/moderate [post]
+func (h *InstagramHandler) ModerateCommentManually(c *gin.Context) {
+	accountID := c.Param("account_id")
+	commentID := c.Param("comment_id")
+	
+	if accountID == "" || commentID == "" {
+		c.JSON(400, gin.H{"error": "Account ID and Comment ID are required"})
+		return
+	}
+
+	var req struct {
+		Action string `json:"action" binding:"required,oneof=hide unhide"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	isHidden := req.Action == "hide"
+
+	accessToken, err := h.oauthService.GetDecryptedAccessToken(c.Request.Context(), accountID)
+	if err != nil {
+		h.logger.Error("Failed to get access token", zap.Error(err), zap.String("account_id", accountID))
+		c.JSON(500, gin.H{"error": "Failed to authenticate with Instagram"})
+		return
+	}
+
+	// Tell Instagram to hide/unhide
+	err = h.mediaService.HideComment(c.Request.Context(), accountID, accessToken, commentID, isHidden)
+	if err != nil {
+		h.logger.Error("Failed to moderate comment on Instagram", zap.Error(err))
+		c.JSON(500, gin.H{"error": "Failed to update comment status on Instagram"})
+		return
+	}
+
+	// Update DB
+	err = h.commentRepo.UpdateCommentStatus(c.Request.Context(), commentID, isHidden)
+	if err != nil {
+		h.logger.Error("Failed to update comment status in DB", zap.Error(err))
+		// Not returning error since Instagram API succeeded, but good to log
+	}
+
+	c.JSON(200, gin.H{
+		"status": "success",
+		"message": fmt.Sprintf("Comment successfully %s", req.Action),
 	})
 }

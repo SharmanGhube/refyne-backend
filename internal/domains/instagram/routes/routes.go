@@ -40,6 +40,10 @@ func SetupInstagramRoutes(router *gin.RouterGroup, registry *handlerregistry.Han
 		protected.GET("/instagram/accounts", handler.ListAccounts)
 		protected.GET("/instagram/accounts/:id", handler.GetAccount)
 
+		// Comments
+		protected.GET("/instagram/accounts/:account_id/comments", handler.GetComments)
+		protected.POST("/instagram/accounts/:account_id/comments/:comment_id/moderate", handler.ModerateCommentManually)
+
 		// Media management
 		protected.GET("/instagram/media", handler.GetMedia)
 		protected.GET("/instagram/media/:id", handler.GetMediaByID)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/refynehq/refyne-backend/internal/domains/instagram/models"
+	"github.com/refynehq/refyne-backend/internal/domains/instagram/repository"
 	"github.com/refynehq/refyne-backend/internal/domains/instagram/services"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"github.com/riverqueue/river"
@@ -38,6 +40,7 @@ type InstagramWebhookWorker struct {
 	geminiService services.GeminiService
 	mediaService  services.InstagramMediaService
 	oauthService  services.InstagramOAuthService
+	commentRepo   repository.InstagramCommentRepository
 	riverClient   *river.Client[any]
 }
 
@@ -46,12 +49,14 @@ func NewInstagramWebhookWorker(
 	geminiService services.GeminiService,
 	mediaService services.InstagramMediaService,
 	oauthService services.InstagramOAuthService,
+	commentRepo repository.InstagramCommentRepository,
 ) *InstagramWebhookWorker {
 	return &InstagramWebhookWorker{
 		logger:        logging.GetJobLogger("InstagramWebhookWorker"),
 		geminiService: geminiService,
 		mediaService:  mediaService,
 		oauthService:  oauthService,
+		commentRepo:   commentRepo,
 	}
 }
 
@@ -229,6 +234,18 @@ func (w *InstagramWebhookWorker) processCommentChange(ctx context.Context, chang
 		return nil // Don't block processing of other webhooks
 	}
 
+	// Create and save comment in DB
+	commentRecord := &models.InstagramComment{
+		ID:               commentChange.ID,
+		InstagramMediaID: commentChange.MediaID,
+		AccountID:        accountID,
+		Username:         commentChange.From.Username,
+		Text:             commentChange.Text,
+		IsHidden:         false,
+		IsFlagged:        moderationResult.IsFlagged,
+		ModerationReason: moderationResult.Reason,
+	}
+
 	// 2. Take action if flagged
 	if moderationResult.IsFlagged {
 		w.logger.Info("Comment flagged by AI",
@@ -246,14 +263,19 @@ func (w *InstagramWebhookWorker) processCommentChange(ctx context.Context, chang
 			}
 
 			// For now we only hide, even if 'delete' was recommended (safer default)
-			// (You can change this logic later if you want to support DELETE)
 			err = w.mediaService.HideComment(ctx, accountID, accessToken, commentChange.ID, true)
 			if err != nil {
 				w.logger.Error("Failed to hide comment on Instagram", zap.Error(err), zap.String("comment_id", commentChange.ID))
 			} else {
 				w.logger.Info("Comment hidden successfully", zap.String("comment_id", commentChange.ID))
+				commentRecord.IsHidden = true
 			}
 		}
+	}
+
+	// Save to DB
+	if err := w.commentRepo.SaveComment(ctx, commentRecord); err != nil {
+		w.logger.Error("Failed to save comment to database", zap.Error(err))
 	}
 
 	return nil

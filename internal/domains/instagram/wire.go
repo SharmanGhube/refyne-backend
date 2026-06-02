@@ -30,6 +30,7 @@ var ProviderSet = wire.NewSet(
 	repo.NewInstagramMediaRepository,
 	repo.NewInstagramInsightsRepository,
 	repo.NewInstagramAIRepository,
+	repo.NewInstagramCommentRepository,
 
 	// Configuration
 	config.NewInstagramConfig,

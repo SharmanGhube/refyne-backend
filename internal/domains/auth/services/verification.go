@@ -5,6 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
+	auth "github.com/refynehq/refyne-backend/internal/domains/auth/utils"
+	userModels "github.com/refynehq/refyne-backend/internal/domains/user/models"
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"go.uber.org/zap"
 )
@@ -84,7 +86,7 @@ func (s *AuthServiceImpl) SendVerificationEmail(c *gin.Context, userID, email, u
 }
 
 // VerifyAccount verifies a user's email using the verification token
-func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.AppError {
+func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) (*userModels.User, *auth.TokenPair, *errors.AppError) {
 	s.logger.Info("Verifying account",
 		zap.String("requestID", middlewares.GetRequestID(c)),
 	)
@@ -92,7 +94,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 	// Get verification token from database
 	vToken, err := s.verificationRepo.GetVerificationToken(c, token)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// Check if token is valid
@@ -100,7 +102,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 		s.logger.Warn("Verification token already used",
 			zap.String("requestID", middlewares.GetRequestID(c)),
 		)
-		return errors.NewAppError(
+		return nil, nil, errors.NewAppError(
 			c,
 			"VERIFICATION_TOKEN_USED",
 			"This verification link has already been used",
@@ -115,7 +117,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 		s.logger.Warn("Verification token expired",
 			zap.String("requestID", middlewares.GetRequestID(c)),
 		)
-		return errors.NewAppError(
+		return nil, nil, errors.NewAppError(
 			c,
 			"VERIFICATION_TOKEN_EXPIRED",
 			"This verification link has expired. Please request a new one",
@@ -128,7 +130,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 	// Get user
 	user, getUserErr := s.coreUserRepo.GetUserByID(c, vToken.UserID)
 	if getUserErr != nil {
-		return getUserErr
+		return nil, nil, getUserErr
 	}
 
 	// Check if user is already verified
@@ -136,7 +138,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 		s.logger.Info("User already verified",
 			zap.String("user_id", vToken.UserID),
 		)
-		return errors.NewAppError(
+		return nil, nil, errors.NewAppError(
 			c,
 			"USER_ALREADY_VERIFIED",
 			"Your account is already verified",
@@ -148,7 +150,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 
 	// Mark token as verified
 	if err := s.verificationRepo.MarkTokenAsVerified(c, token); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// Update user as verified and active
@@ -158,7 +160,7 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 			zap.String("user_id", vToken.UserID),
 			zap.Error(updateErr),
 		)
-		return updateErr
+		return nil, nil, updateErr
 	}
 
 	s.logger.Info("Account verified successfully",
@@ -166,7 +168,23 @@ func (s *AuthServiceImpl) VerifyAccount(c *gin.Context, token string) *errors.Ap
 		zap.String("user_id", vToken.UserID),
 	)
 
-	return nil
+	// Update local user object
+	user.IsVerified = true
+	user.Status = "active"
+
+	// Update last login timestamp and IP
+	if appErr := s.coreUserRepo.UpdateLastLogin(c, user.ID, nil, nil); appErr != nil {
+		s.logger.Error("Failed to update last login info", zap.Error(appErr))
+	}
+
+	// Generate JWT token
+	tokenPair, tokenErr := auth.GenerateTokenPair(c, user.Username, user.ID, user.Email, user.TokenVersion)
+	if tokenErr != nil {
+		s.logger.Error("Failed to generate token pair", zap.Error(tokenErr))
+		return nil, nil, tokenErr
+	}
+
+	return user, tokenPair, nil
 }
 
 // ResendVerificationEmail resends verification email to user

@@ -32,7 +32,7 @@ type AuthService interface {
 
 	// Account Verification
 	SendVerificationEmail(c *gin.Context, userID, email, username string) *errors.AppError
-	VerifyAccount(c *gin.Context, token string) *errors.AppError
+	VerifyAccount(c *gin.Context, token string) (*userModels.User, *auth.TokenPair, *errors.AppError)
 	ResendVerificationEmail(c *gin.Context, email string) *errors.AppError
 
 	// User retrieval

@@ -297,15 +297,36 @@ func (h *AuthHandlerImpl) VerifyAccount(c *gin.Context) {
 	}
 
 	// Verify account
-	if appErr := h.authService.VerifyAccount(c, token); appErr != nil {
+	user, tokenPair, appErr := h.authService.VerifyAccount(c, token)
+	if appErr != nil {
 		h.logger.Error("Account verification failed", zap.String("requestID", middlewares.GetRequestID(c)), zap.Error(appErr))
 		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
 		return
 	}
 
+	// Prepare user response
+	userResponse := gin.H{
+		"id":                   user.ID,
+		"email":                user.Email,
+		"username":             user.Username,
+		"first_name":           user.FirstName,
+		"last_name":            user.LastName,
+		"status":               user.Status,
+		"is_active":            user.IsActive,
+		"is_verified":          user.IsVerified,
+		"onboarding_completed": user.OnboardingCompleted,
+		"created_at":           user.CreatedAt,
+	}
+
+	// Set refresh token as httpOnly cookie (not accessible via JS)
+	middlewares.SetRefreshTokenCookie(c, tokenPair.RefreshToken, 7*24*time.Hour)
+
 	// Success response using standardized envelope
 	responseData := gin.H{
-		"status": "verified",
+		"status":       "verified",
+		"access_token": tokenPair.AccessToken,
+		"expires_in":   tokenPair.ExpiresIn,
+		"user":         userResponse,
 	}
 
 	middlewares.RespondWithSuccess(c, http.StatusOK, "Account verified successfully", responseData)

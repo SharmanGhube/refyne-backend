@@ -188,11 +188,11 @@ func (r *SubscriptionRepositoryImpl) GetUserSubscriptionStatus(
 	`
 
 	var result struct {
-		Tier           string     `db:"subscription_tier"`
-		Status         string     `db:"subscription_status"`
-		ExpiresAt      *time.Time `db:"subscription_expires_at"`
-		CustomerID     *string    `db:"paddle_customer_id"`
-		SubscriptionID *string    `db:"paddle_subscription_id"`
+		Tier           sql.NullString `db:"subscription_tier"`
+		Status         sql.NullString `db:"subscription_status"`
+		ExpiresAt      *time.Time     `db:"subscription_expires_at"`
+		CustomerID     *string        `db:"paddle_customer_id"`
+		SubscriptionID *string        `db:"paddle_subscription_id"`
 	}
 
 	dbErr := r.db.GetContext(ctx, &result, query, userID)
@@ -207,6 +207,16 @@ func (r *SubscriptionRepositoryImpl) GetUserSubscriptionStatus(
 		)
 		return "", "", nil, nil, nil, subscriptionErrors.NewDatabaseError(ctx, "get_subscription_status", dbErr)
 	}
+	
+	tierVal := "free"
+	if result.Tier.Valid {
+		tierVal = result.Tier.String
+	}
+	
+	statusVal := "inactive"
+	if result.Status.Valid {
+		statusVal = result.Status.String
+	}
 
-	return result.Tier, result.Status, result.ExpiresAt, result.CustomerID, result.SubscriptionID, nil
+	return tierVal, statusVal, result.ExpiresAt, result.CustomerID, result.SubscriptionID, nil
 }

@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS instagram_comments (
     CONSTRAINT fk_account FOREIGN KEY (account_id) REFERENCES instagram_accounts(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_instagram_comments_media_id ON instagram_comments(instagram_media_id);
-CREATE INDEX idx_instagram_comments_account_id ON instagram_comments(account_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_comments_media_id ON instagram_comments(instagram_media_id);
+CREATE INDEX IF NOT EXISTS idx_instagram_comments_account_id ON instagram_comments(account_id);

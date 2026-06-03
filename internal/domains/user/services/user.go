@@ -7,6 +7,7 @@ import (
 	errors "github.com/refynehq/refyne-backend/pkg/error"
 	"github.com/refynehq/refyne-backend/pkg/logging"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // UserService defines business logic for user operations
@@ -24,6 +25,9 @@ type UserService interface {
 
 	// Account deletion (soft delete)
 	DeleteUserAccount(c *gin.Context, userID string) *errors.AppError
+
+	// Password management
+	ChangePassword(c *gin.Context, userID, oldPassword, newPassword string) *errors.AppError
 }
 
 // UserServiceImpl implements UserService
@@ -239,5 +243,60 @@ func (s *UserServiceImpl) DeleteUserAccount(c *gin.Context, userID string) *erro
 	}
 
 	s.logger.Info("User account deleted", zap.String("userID", userID))
+	return nil
+}
+
+// ChangePassword updates the user's password
+func (s *UserServiceImpl) ChangePassword(c *gin.Context, userID, oldPassword, newPassword string) *errors.AppError {
+	s.logger.Debug("Changing user password", zap.String("userID", userID))
+
+	user, appErr := s.userRepo.GetUserByID(c, userID)
+	if appErr != nil {
+		return appErr
+	}
+	if user == nil {
+		return errors.NewAppError(
+			c,
+			"USER_NOT_FOUND",
+			"User not found",
+			errors.ErrorTypeNotFound,
+			errors.SeverityLow,
+			"user",
+		)
+	}
+
+	// Verify old password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return errors.NewAppError(
+			c,
+			"INVALID_PASSWORD",
+			"Incorrect current password",
+			errors.ErrorTypeValidation,
+			errors.SeverityLow,
+			"user",
+		)
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Error("Failed to hash new password", zap.Error(err))
+		return errors.NewAppError(
+			c,
+			"PASSWORD_HASH_FAILED",
+			"Failed to hash password",
+			errors.ErrorTypeInternal,
+			errors.SeverityHigh,
+			"user",
+		)
+	}
+
+	// Update password
+	if appErr := s.userRepo.UpdatePassword(c, userID, string(hashedPassword)); appErr != nil {
+		s.logger.Error("Failed to update password", zap.Error(appErr))
+		return appErr
+	}
+
+	s.logger.Info("User password updated successfully", zap.String("userID", userID))
 	return nil
 }

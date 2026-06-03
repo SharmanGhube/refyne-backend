@@ -17,6 +17,7 @@ type UserHandler interface {
 	UpdateSettings(c *gin.Context)
 	CompleteOnboarding(c *gin.Context)
 	DeleteAccount(c *gin.Context)
+	ChangePassword(c *gin.Context)
 }
 
 // UserHandlerImpl implements UserHandler
@@ -194,4 +195,40 @@ func (h *UserHandlerImpl) DeleteAccount(c *gin.Context) {
 	middlewares.RespondWithSuccess(c, 200, "Account deleted successfully", gin.H{
 		"status": "deleted",
 	})
+}
+
+// ChangePassword updates the current user's password
+// POST /api/user/password/change
+func (h *UserHandlerImpl) ChangePassword(c *gin.Context) {
+	requestID := middlewares.GetRequestID(c)
+	h.logger.Debug("ChangePassword request", zap.String("requestID", requestID))
+
+	userID, exists := middlewares.GetUserID(c)
+	if !exists {
+		middlewares.RespondWithError(c, 401, "UNAUTHORIZED", "User authentication required", nil)
+		return
+	}
+
+	var req struct {
+		OldPassword string `json:"old_password" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid password change request", zap.String("requestID", requestID), zap.Error(err))
+		middlewares.RespondWithError(c, 400, "VALIDATION_ERROR", "Invalid request body", map[string]interface{}{
+			"details": err.Error(),
+		})
+		return
+	}
+
+	appErr := h.userService.ChangePassword(c, userID, req.OldPassword, req.NewPassword)
+	if appErr != nil {
+		h.logger.Error("Failed to change password", zap.String("requestID", requestID), zap.Error(appErr))
+		c.JSON(appErr.HTTPStatus, appErr.ClientResponse())
+		return
+	}
+
+	h.logger.Info("Password changed successfully", zap.String("requestID", requestID), zap.String("userID", userID))
+	middlewares.RespondWithSuccess(c, 200, "Password changed successfully", nil)
 }

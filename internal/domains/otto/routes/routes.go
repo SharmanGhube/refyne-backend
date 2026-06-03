@@ -42,5 +42,9 @@ func SetupOttoRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerR
 
 		// Context enrichment
 		protected.GET("/otto/conversations/:id/context", handler.Handler.GetConversationContext)
+
+		// Settings
+		protected.GET("/otto/settings", handler.SettingsHandler.GetSettings)
+		protected.PUT("/otto/settings", handler.SettingsHandler.UpsertSettings)
 	}
 }

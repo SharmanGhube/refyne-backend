@@ -13,14 +13,17 @@ var ProviderSet = wire.NewSet(
 	// Repository
 	repository.NewOttoConversationRepository,
 	repository.NewOttoMessageRepository,
+	repository.NewOttoRepository,
 
 	// Registry
 	NewOttoRegistry,
 
 	// Handlers
 	handlers.NewOttoHandler,
+	handlers.NewOttoSettingsHandler,
 
 	// Services
 	services.NewConversationService,
 	services.NewOttoAssistantService,
+	services.NewOttoService,
 )

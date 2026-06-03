@@ -31,5 +31,8 @@ func SetupUserRoutes(router *gin.RouterGroup, registry *handlerregistry.HandlerR
 
 		// Account deletion
 		userGroup.DELETE("/account", userHandler.DeleteAccount)
+
+		// Password change
+		userGroup.POST("/password/change", userHandler.ChangePassword)
 	}
 }

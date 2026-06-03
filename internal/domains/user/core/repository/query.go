@@ -29,7 +29,7 @@ const (
 	selectUserByIDQuery = `
 		SELECT id, email, password_hash, first_name, last_name, username,
 			   status, is_active, is_verified, last_login, last_login_ip,
-			   onboarding_completed, created_at, updated_at, deleted_at
+			   onboarding_completed, token_version, created_at, updated_at, deleted_at
 		FROM users 
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -37,7 +37,7 @@ const (
 	selectUserByEmailQuery = `
 		SELECT id, email, password_hash, first_name, last_name, username,
 			   status, is_active, is_verified, last_login, last_login_ip,
-			   onboarding_completed, created_at, updated_at, deleted_at
+			   onboarding_completed, token_version, created_at, updated_at, deleted_at
 		FROM users 
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -45,7 +45,7 @@ const (
 	selectUserByUsernameQuery = `
 		SELECT id, email, password_hash, first_name, last_name, username,
 			   status, is_active, is_verified, last_login, last_login_ip,
-			   onboarding_completed, created_at, updated_at, deleted_at
+			   onboarding_completed, token_version, created_at, updated_at, deleted_at
 		FROM users 
 		WHERE username = $1 AND deleted_at IS NULL
 	`
@@ -62,7 +62,7 @@ const (
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id, email, password_hash, first_name, last_name, username,
 				  status, is_active, is_verified, last_login, last_login_ip,
-				  onboarding_completed, created_at, updated_at, deleted_at
+				  onboarding_completed, token_version, created_at, updated_at, deleted_at
 	`
 
 	updateUserPasswordQuery = `
@@ -72,7 +72,7 @@ const (
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id, email, password_hash, first_name, last_name, username,
 				  status, is_active, is_verified, last_login, last_login_ip,
-				  onboarding_completed, created_at, updated_at, deleted_at
+				  onboarding_completed, token_version, created_at, updated_at, deleted_at
 	`
 
 	updateUserLoginInfoQuery = `
@@ -91,7 +91,7 @@ const (
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id, email, password_hash, first_name, last_name, username,
 				  status, is_active, is_verified, last_login, last_login_ip,
-				  onboarding_completed, created_at, updated_at, deleted_at
+				  onboarding_completed, token_version, created_at, updated_at, deleted_at
 	`
 
 	updateUserVerificationQuery = `
@@ -101,7 +101,7 @@ const (
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING id, email, password_hash, first_name, last_name, username,
 				  status, is_active, is_verified, last_login, last_login_ip,
-				  created_at, updated_at, deleted_at
+				  token_version, created_at, updated_at, deleted_at
 	`
 
 	softDeleteUserQuery = `
@@ -118,7 +118,7 @@ const (
 	listUsersQuery = `
 		SELECT id, email, password_hash, first_name, last_name, username,
 			   status, is_active, is_verified, last_login, last_login_ip,
-			   created_at, updated_at, deleted_at
+			   token_version, created_at, updated_at, deleted_at
 		FROM users 
 		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC

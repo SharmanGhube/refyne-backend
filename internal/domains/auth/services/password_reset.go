@@ -89,7 +89,7 @@ func (s *AuthServiceImpl) RequestPasswordReset(c *gin.Context, email string) *er
 
 	// Send password reset email
 	// Construct reset link using configured frontend URL
-	resetLink := s.frontendURL + "/reset-password?token=" + token
+	resetLink := s.frontendURL + "/auth/reset-password?token=" + token
 	if s.emailService != nil {
 		if emailErr := s.emailService.SendPasswordReset(email, token, resetLink); emailErr != nil {
 			s.logger.Error("Failed to send password reset email",

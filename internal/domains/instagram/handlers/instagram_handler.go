@@ -957,7 +957,7 @@ func (h *InstagramHandler) ManualAnalyze(c *gin.Context) {
 // @Success 200 {array} models.InstagramComment
 // @Router /instagram/accounts/{account_id}/comments [get]
 func (h *InstagramHandler) GetComments(c *gin.Context) {
-	accountID := c.Param("account_id")
+	accountID := c.Param("id")
 	if accountID == "" {
 		c.JSON(400, gin.H{"error": "Account ID is required"})
 		return
@@ -985,7 +985,7 @@ func (h *InstagramHandler) GetComments(c *gin.Context) {
 // @Success 200 {object} object{status=string}
 // @Router /instagram/accounts/{account_id}/comments/{comment_id}/moderate [post]
 func (h *InstagramHandler) ModerateCommentManually(c *gin.Context) {
-	accountID := c.Param("account_id")
+	accountID := c.Param("id")
 	commentID := c.Param("comment_id")
 	
 	if accountID == "" || commentID == "" {

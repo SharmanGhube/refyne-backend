@@ -67,7 +67,19 @@ func (r *instagramAccountRepository) CreateAccount(c *gin.Context, input *models
 			biography, followers_count, connected_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
-		) RETURNING *
+		)
+		ON CONFLICT (instagram_user_id) DO UPDATE SET
+			user_id = EXCLUDED.user_id,
+			username = EXCLUDED.username,
+			access_token = EXCLUDED.access_token,
+			refresh_token = EXCLUDED.refresh_token,
+			token_expires_at = EXCLUDED.token_expires_at,
+			profile_picture_url = EXCLUDED.profile_picture_url,
+			biography = EXCLUDED.biography,
+			followers_count = EXCLUDED.followers_count,
+			updated_at = NOW(),
+			deleted_at = NULL
+		RETURNING *
 	`
 
 	var account models.InstagramAccount

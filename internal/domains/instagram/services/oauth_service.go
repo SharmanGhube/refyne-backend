@@ -70,7 +70,7 @@ func NewInstagramOAuthService(
 
 // GenerateAuthURL generates the OAuth authorization URL for Facebook Login (to manage Instagram)
 func (s *instagramOAuthService) GenerateAuthURL(state string) string {
-	baseURL := "https://www.facebook.com/v19.0/dialog/oauth"
+	baseURL := "https://www.facebook.com/v25.0/dialog/oauth"
 
 	params := url.Values{}
 	params.Set("client_id", s.config.AppID)
@@ -204,7 +204,7 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 // exchangeCodeForToken exchanges the authorization code for an access token via Facebook Graph API
 func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchangeResponse, error) {
 	// Facebook token endpoint
-	tokenURL := "https://graph.facebook.com/v19.0/oauth/access_token"
+	tokenURL := "https://graph.facebook.com/v25.0/oauth/access_token"
 
 	// Prepare request body
 	data := url.Values{}
@@ -246,7 +246,7 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 	}
 
 	// Step 2: Exchange the short-lived token for a long-lived token (60 days)
-	longLivedURL := "https://graph.facebook.com/v19.0/oauth/access_token"
+	longLivedURL := "https://graph.facebook.com/v25.0/oauth/access_token"
 	llData := url.Values{}
 	llData.Set("grant_type", "fb_exchange_token")
 	llData.Set("client_id", s.config.AppID)
@@ -278,7 +278,7 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 // getUserInfo fetches user information from Facebook Graph API to find the linked Instagram Business Account
 func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoResponse, error) {
 	// Facebook accounts endpoint to get pages and linked instagram accounts
-	userURL := fmt.Sprintf("https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=%s", url.QueryEscape(accessToken))
+	userURL := fmt.Sprintf("https://graph.facebook.com/v25.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=%s", url.QueryEscape(accessToken))
 
 	resp, err := s.httpClient.Get(userURL)
 	if err != nil {

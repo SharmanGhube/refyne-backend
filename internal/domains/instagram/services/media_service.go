@@ -373,8 +373,8 @@ func (s *instagramMediaService) HideComment(ctx context.Context, accountID, acce
 	}
 
 	// Instagram Graph API endpoint for comments: POST /{comment-id}
-	apiURL := fmt.Sprintf("https://graph.facebook.com/v19.0/%s", commentID)
-	
+	apiURL := fmt.Sprintf("https://graph.facebook.com/v25.0/%s", commentID)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, nil)
 	if err != nil {
 		return err
@@ -409,4 +409,3 @@ func (s *instagramMediaService) HideComment(ctx context.Context, accountID, acce
 
 	return nil
 }
-

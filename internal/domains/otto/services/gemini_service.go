@@ -33,7 +33,7 @@ func NewOttoAssistantService(
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
-		model = "gemini-3.1-flash"
+		model = "gemini-3.1-flash-lite"
 	}
 
 	logger := logging.GetServiceLogger("OttoAssistantService")
@@ -78,8 +78,16 @@ func (s *ottoAssistantService) ProcessMessage(ctx context.Context, conversationI
 		responseText = "I'm having trouble reaching my AI backend right now. Please try again in a moment."
 	}
 
+	var userID string
+	if convErr == nil {
+		userID = conv.UserID
+	} else if len(history) > 0 {
+		// Fallback to the latest message which should be the user's message we just saved
+		userID = history[len(history)-1].UserID
+	}
+
 	// Persist assistant reply
-	assistantMsg := models.NewOttoMessage(conversationID, "", "assistant", responseText)
+	assistantMsg := models.NewOttoMessage(conversationID, userID, "assistant", responseText)
 	assistantMsg.ModelUsed = s.model
 
 	if err := s.messageRepo.CreateMessage(ctx, assistantMsg); err != nil {

@@ -145,7 +145,7 @@ func (s *instagramInsightsService) FetchAccountInsights(ctx context.Context, acc
 		case "reach":
 			insights.Reach = value
 		case "profile_views":
-			insights.ProfileVisits = value
+			insights.ProfileViews = value
 		case "follower_count":
 			insights.FollowerCount = value
 		}
@@ -157,9 +157,9 @@ func (s *instagramInsightsService) FetchAccountInsights(ctx context.Context, acc
 		insights.EngagementRate = engagementRate
 	}
 
-	// Calculate growth rate (simple: profile visits / impressions)
+	// Calculate growth rate (simple: profile views / impressions)
 	if insights.Impressions > 0 {
-		growthRate := float64(insights.ProfileVisits) / float64(insights.Impressions) * 100
+		growthRate := float64(insights.ProfileViews) / float64(insights.Impressions) * 100
 		insights.GrowthRate = growthRate
 	}
 

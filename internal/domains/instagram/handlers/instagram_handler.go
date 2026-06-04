@@ -493,7 +493,7 @@ func (h *InstagramHandler) GetAccountAnalytics(c *gin.Context) {
 			"metric_date":    insight.MetricDate,
 			"impressions":    insight.Impressions,
 			"reach":          insight.Reach,
-			"profile_visits": insight.ProfileVisits,
+			"profile_views":  insight.ProfileViews,
 			"follower_count": insight.FollowerCount,
 			"engagement_rate": insight.EngagementRate,
 			"growth_rate":    insight.GrowthRate,
@@ -554,7 +554,7 @@ func (h *InstagramHandler) GetMediaAnalytics(c *gin.Context) {
 			"metric_date":    insight.MetricDate,
 			"impressions":    insight.Impressions,
 			"reach":          insight.Reach,
-			"profile_visits": insight.ProfileVisits,
+			"profile_views":  insight.ProfileViews,
 			"shares":         insight.Shares,
 			"saves":          insight.Saves,
 			"clicks":         insight.Clicks,
@@ -635,7 +635,7 @@ func (h *InstagramHandler) GetAnalyticsTrends(c *gin.Context) {
 				"period":         dateKey,
 				"impressions":    int64(0),
 				"reach":          int64(0),
-				"profile_visits": int64(0),
+				"profile_views":  int64(0),
 				"engagement_rate": 0.0,
 				"growth_rate":    0.0,
 			}
@@ -644,7 +644,7 @@ func (h *InstagramHandler) GetAnalyticsTrends(c *gin.Context) {
 		data := groupedData[dateKey]
 		data["impressions"] = data["impressions"].(int64) + int64(insight.Impressions)
 		data["reach"] = data["reach"].(int64) + int64(insight.Reach)
-		data["profile_visits"] = data["profile_visits"].(int64) + int64(insight.ProfileVisits)
+		data["profile_views"] = data["profile_views"].(int64) + int64(insight.ProfileViews)
 		groupedData[dateKey] = data
 	}
 

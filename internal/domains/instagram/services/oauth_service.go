@@ -306,14 +306,31 @@ func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoRespon
 		return nil, fmt.Errorf("failed to parse user info: %w", err)
 	}
 
-	// Find the first Page that has a linked Instagram Business Account
+	totalPages := len(accountsResp.Data)
+	instagramAccountsCount := 0
+	
+	var firstLinkedAccount *userInfoResponse
+
+	// Count and find the first linked Instagram Business Account
 	for _, page := range accountsResp.Data {
 		if page.InstagramBusinessAccount.ID != "" {
-			return &userInfoResponse{
-				ID:       page.InstagramBusinessAccount.ID,
-				Username: page.InstagramBusinessAccount.Username,
-			}, nil
+			instagramAccountsCount++
+			if firstLinkedAccount == nil {
+				firstLinkedAccount = &userInfoResponse{
+					ID:       page.InstagramBusinessAccount.ID,
+					Username: page.InstagramBusinessAccount.Username,
+				}
+			}
 		}
+	}
+
+	s.logger.Info("Facebook accounts retrieved",
+		zap.Int("total_pages", totalPages),
+		zap.Int("instagram_accounts_connected", instagramAccountsCount),
+	)
+
+	if firstLinkedAccount != nil {
+		return firstLinkedAccount, nil
 	}
 
 	s.logger.Warn("No instagram business account found in Facebook response",

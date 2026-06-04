@@ -49,14 +49,14 @@ func NewInstagramInsightsRepository(db *sqlx.DB) InstagramInsightsRepository {
 // StoreMediaInsights stores insights for a media
 func (r *instagramInsightsRepository) StoreMediaInsights(ctx context.Context, insights *models.MediaInsights) error {
 	query := `
-		INSERT INTO instagram_insights (
-			media_id, account_id, impressions, reach, profile_visits, shares, saves, clicks,
+		INSERT INTO instagram_media_insights (
+			media_id, account_id, impressions, reach, profile_views, shares, saves, clicks,
 			engagement_rate, metric_date, collected_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
-		ON CONFLICT (media_id) DO UPDATE SET
+		ON CONFLICT (media_id, metric_date) DO UPDATE SET
 			impressions = EXCLUDED.impressions,
 			reach = EXCLUDED.reach,
-			profile_visits = EXCLUDED.profile_visits,
+			profile_views = EXCLUDED.profile_views,
 			shares = EXCLUDED.shares,
 			saves = EXCLUDED.saves,
 			clicks = EXCLUDED.clicks,
@@ -69,7 +69,7 @@ func (r *instagramInsightsRepository) StoreMediaInsights(ctx context.Context, in
 		insights.AccountID,
 		insights.Impressions,
 		insights.Reach,
-		insights.ProfileVisits,
+		insights.ProfileViews,
 		insights.Shares,
 		insights.Saves,
 		insights.Clicks,
@@ -89,9 +89,9 @@ func (r *instagramInsightsRepository) StoreMediaInsights(ctx context.Context, in
 // GetMediaInsights retrieves insights for a media
 func (r *instagramInsightsRepository) GetMediaInsights(ctx context.Context, mediaID string) (*models.MediaInsights, error) {
 	query := `
-		SELECT id, media_id, account_id, impressions, reach, profile_visits, shares, saves, clicks,
+		SELECT id, media_id, account_id, impressions, reach, profile_views, shares, saves, clicks,
 			engagement_rate, metric_date, collected_at, updated_at
-		FROM instagram_insights
+		FROM instagram_media_insights
 		WHERE media_id = $1
 		ORDER BY metric_date DESC
 		LIMIT 1
@@ -110,7 +110,7 @@ func (r *instagramInsightsRepository) GetMediaInsights(ctx context.Context, medi
 // GetLatestInsights retrieves latest insights for an account
 func (r *instagramInsightsRepository) GetLatestInsights(ctx context.Context, accountID string, limit int) ([]*models.MediaInsights, error) {
 	query := `
-		SELECT id, media_id, account_id, impressions, reach, profile_visits, shares, saves, clicks,
+		SELECT id, media_id, account_id, impressions, reach, profile_views, shares, saves, clicks,
 			engagement_rate, metric_date, collected_at, updated_at
 		FROM instagram_media_insights
 		WHERE account_id = $1
@@ -138,7 +138,7 @@ func (r *instagramInsightsRepository) StoreAccountInsights(ctx context.Context, 
 		ON CONFLICT (account_id, metric_date) DO UPDATE SET
 			impressions = EXCLUDED.impressions,
 			reach = EXCLUDED.reach,
-			profile_visits = EXCLUDED.profile_visits,
+			profile_views = EXCLUDED.profile_views,
 			follower_count = EXCLUDED.follower_count,
 			engagement_rate = EXCLUDED.engagement_rate,
 			growth_rate = EXCLUDED.growth_rate,
@@ -168,9 +168,9 @@ func (r *instagramInsightsRepository) StoreAccountInsights(ctx context.Context, 
 // GetAccountInsightsByDate retrieves account insights for a specific date
 func (r *instagramInsightsRepository) GetAccountInsightsByDate(ctx context.Context, accountID string, date time.Time) (*models.AccountInsights, error) {
 	query := `
-		SELECT id, account_id, impressions, reach, profile_visits, follower_count,
+		SELECT id, account_id, impressions, reach, profile_views, follower_count,
 			engagement_rate, growth_rate, metric_date, collected_at, updated_at
-		FROM instagram_account_insights
+		FROM instagram_insights
 		WHERE account_id = $1 AND DATE(metric_date) = DATE($2)
 		LIMIT 1
 	`
@@ -188,9 +188,9 @@ func (r *instagramInsightsRepository) GetAccountInsightsByDate(ctx context.Conte
 // GetAccountInsightsTrend retrieves account insights for the last N days
 func (r *instagramInsightsRepository) GetAccountInsightsTrend(ctx context.Context, accountID string, days int) ([]*models.AccountInsights, error) {
 	query := `
-		SELECT id, account_id, impressions, reach, profile_visits, follower_count,
+		SELECT id, account_id, impressions, reach, profile_views, follower_count,
 			engagement_rate, growth_rate, metric_date, collected_at, updated_at
-		FROM instagram_account_insights
+		FROM instagram_insights
 		WHERE account_id = $1 AND metric_date >= NOW() - INTERVAL '1 day' * $2
 		ORDER BY metric_date DESC
 	`

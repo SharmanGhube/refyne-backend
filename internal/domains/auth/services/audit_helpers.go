@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/refynehq/refyne-backend/internal/api/middlewares"
 	"github.com/refynehq/refyne-backend/internal/shared/audit"
@@ -29,7 +31,7 @@ func (s *AuthServiceImpl) logAuditEvent(c *gin.Context, userID *string, eventTyp
 
 	// Log asynchronously to avoid blocking the request
 	go func() {
-		if err := s.auditLogger.LogEvent(c.Request.Context(), log); err != nil {
+		if err := s.auditLogger.LogEvent(context.Background(), log); err != nil {
 			s.logger.Error("Failed to log audit event",
 				zap.String("event_type", string(eventType)),
 				zap.Error(err),

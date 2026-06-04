@@ -102,7 +102,7 @@ type MediaInsights struct {
 	AccountID        string    `db:"account_id" json:"account_id"`
 	Impressions      int       `db:"impressions" json:"impressions"`
 	Reach            int       `db:"reach" json:"reach"`
-	ProfileVisits    int       `db:"profile_visits" json:"profile_visits"`
+	ProfileViews     int       `db:"profile_views" json:"profile_views"`
 	Shares           int       `db:"shares" json:"shares"`
 	Saves            int       `db:"saves" json:"saves"`
 	Clicks           int       `db:"clicks" json:"clicks"`
@@ -118,7 +118,7 @@ type AccountInsights struct {
 	AccountID      string    `db:"account_id" json:"account_id"`
 	Impressions    int       `db:"impressions" json:"impressions"`
 	Reach          int       `db:"reach" json:"reach"`
-	ProfileVisits  int       `db:"profile_visits" json:"profile_visits"`
+	ProfileViews   int       `db:"profile_views" json:"profile_views"`
 	FollowerCount  int       `db:"follower_count" json:"follower_count"`
 	EngagementRate float64   `db:"engagement_rate" json:"engagement_rate"`
 	GrowthRate     float64   `db:"growth_rate" json:"growth_rate"`

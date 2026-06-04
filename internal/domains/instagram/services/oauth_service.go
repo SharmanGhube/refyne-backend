@@ -79,6 +79,7 @@ func (s *instagramOAuthService) GenerateAuthURL(state string) string {
 	params.Set("scope", "instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_read_engagement,business_management")
 	params.Set("response_type", "code")
 	params.Set("state", state)
+	params.Set("extras", `{"setup":{"channel":"IG_API_ONBOARDING"}}`)
 
 	return fmt.Sprintf("%s?%s", baseURL, params.Encode())
 }

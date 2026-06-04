@@ -31,7 +31,7 @@ type InstagramOAuthService interface {
 	GenerateAuthURL(state string) string
 
 	// HandleCallback handles the OAuth callback and exchanges code for token
-	HandleCallback(c *gin.Context, userID, code, state string) (*models.InstagramAccount, *errors.AppError)
+	HandleCallback(c *gin.Context, userID, code, state string) ([]*models.InstagramAccount, *errors.AppError)
 
 	// RefreshToken refreshes an expired access token
 	RefreshToken(c *gin.Context, accountID string) *errors.AppError
@@ -96,6 +96,7 @@ type fbAccountsResponse struct {
 	Data []struct {
 		ID                       string `json:"id"`
 		Name                     string `json:"name"`
+		AccessToken              string `json:"access_token"`
 		InstagramBusinessAccount struct {
 			ID       string `json:"id"`
 			Username string `json:"username"`
@@ -105,12 +106,19 @@ type fbAccountsResponse struct {
 
 // userInfoResponse represents the extracted Instagram Business Account details
 type userInfoResponse struct {
-	ID       string
-	Username string
+	ID                string
+	Username          string
+	Name              string
+	ProfilePictureURL string
+	Biography         string
+	Website           string
+	FollowersCount    int
+	FollowsCount      int
+	MediaCount        int
 }
 
 // HandleCallback handles the OAuth callback and exchanges code for token
-func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, state string) (*models.InstagramAccount, *errors.AppError) {
+func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, state string) ([]*models.InstagramAccount, *errors.AppError) {
 	if code == "" {
 		s.logger.Warn("OAuth callback missing authorization code")
 		return nil, errors.NewAppError(
@@ -137,8 +145,8 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 		)
 	}
 
-	// Get user info (username, profile details)
-	userInfo, err := s.getUserInfo(tokenResp.AccessToken)
+	// Get user info (username, profile details) for all linked IG accounts
+	userInfos, err := s.getUserInfo(tokenResp.AccessToken)
 	if err != nil {
 		s.logger.Error("Failed to fetch user info", zap.Error(err))
 		return nil, errors.NewAppError(
@@ -173,33 +181,49 @@ func (s *instagramOAuthService) HandleCallback(c *gin.Context, userID, code, sta
 		tokenExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	}
 
-	// Create account input
-	accountInput := &models.CreateInstagramAccountInput{
-		UserID:            userID,
-		InstagramUserID:   userInfo.ID,
-		Username:          userInfo.Username,
-		AccessToken:       encryptedToken,
-		RefreshToken:      encryptedRefreshToken,
-		TokenExpiresAt:    tokenExpiresAt,
-		ProfilePictureURL: "",
-		Biography:         "",
-		FollowersCount:    0,
+	var savedAccounts []*models.InstagramAccount
+
+	for _, info := range userInfos {
+		// Create account input
+		accountInput := &models.CreateInstagramAccountInput{
+			UserID:            userID,
+			InstagramUserID:   info.ID,
+			Username:          info.Username,
+			AccessToken:       encryptedToken,
+			RefreshToken:      encryptedRefreshToken,
+			TokenExpiresAt:    tokenExpiresAt,
+			ProfilePictureURL: info.ProfilePictureURL,
+			Biography:         info.Biography,
+			FollowersCount:    info.FollowersCount,
+		}
+
+		// Store account in database
+		account, repoErr := s.accountRepo.CreateAccount(c, accountInput)
+		if repoErr != nil {
+			s.logger.Error("Failed to create Instagram account", zap.Error(repoErr), zap.String("ig_user_id", info.ID))
+			continue
+		}
+
+		savedAccounts = append(savedAccounts, account)
+		s.logger.Info("Instagram account connected successfully",
+			zap.String("user_id", userID),
+			zap.String("instagram_user_id", info.ID),
+			zap.String("username", info.Username),
+		)
 	}
 
-	// Store account in database
-	account, repoErr := s.accountRepo.CreateAccount(c, accountInput)
-	if repoErr != nil {
-		s.logger.Error("Failed to create Instagram account", zap.Error(repoErr))
-		return nil, repoErr
+	if len(savedAccounts) == 0 {
+		return nil, errors.NewAppError(
+			c,
+			"OAUTH_NO_ACCOUNTS_SAVED",
+			"Failed to save any linked Instagram accounts",
+			errors.ErrorTypeInternal,
+			errors.SeverityHigh,
+			"instagram",
+		)
 	}
 
-	s.logger.Info("Instagram account connected successfully",
-		zap.String("user_id", userID),
-		zap.String("instagram_user_id", userInfo.ID),
-		zap.String("username", userInfo.Username),
-	)
-
-	return account, nil
+	return savedAccounts, nil
 }
 
 // exchangeCodeForToken exchanges the authorization code for an access token via Facebook Graph API
@@ -277,9 +301,9 @@ func (s *instagramOAuthService) exchangeCodeForToken(code string) (*tokenExchang
 }
 
 // getUserInfo fetches user information from Facebook Graph API to find the linked Instagram Business Account
-func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoResponse, error) {
+func (s *instagramOAuthService) getUserInfo(accessToken string) ([]*userInfoResponse, error) {
 	// Facebook accounts endpoint to get pages and linked instagram accounts
-	userURL := fmt.Sprintf("https://graph.facebook.com/v25.0/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=%s", url.QueryEscape(accessToken))
+	userURL := fmt.Sprintf("https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&access_token=%s", url.QueryEscape(accessToken))
 
 	resp, err := s.httpClient.Get(userURL)
 	if err != nil {
@@ -307,30 +331,57 @@ func (s *instagramOAuthService) getUserInfo(accessToken string) (*userInfoRespon
 	}
 
 	totalPages := len(accountsResp.Data)
-	instagramAccountsCount := 0
-	
-	var firstLinkedAccount *userInfoResponse
+	var igAccounts []*userInfoResponse
 
-	// Count and find the first linked Instagram Business Account
+	// Fetch detailed info for each linked Instagram Business Account
 	for _, page := range accountsResp.Data {
-		if page.InstagramBusinessAccount.ID != "" {
-			instagramAccountsCount++
-			if firstLinkedAccount == nil {
-				firstLinkedAccount = &userInfoResponse{
-					ID:       page.InstagramBusinessAccount.ID,
-					Username: page.InstagramBusinessAccount.Username,
-				}
-			}
+		if page.InstagramBusinessAccount.ID != "" && page.AccessToken != "" {
+			igInfoUrl := fmt.Sprintf("https://graph.facebook.com/v25.0/%s?fields=id,username,name,profile_picture_url,biography,website,followers_count,follows_count,media_count&access_token=%s", 
+                page.InstagramBusinessAccount.ID, 
+                url.QueryEscape(page.AccessToken),
+            )
+            
+            igResp, err := s.httpClient.Get(igInfoUrl)
+            if err == nil && igResp.StatusCode == http.StatusOK {
+                bodyBytes, _ := io.ReadAll(igResp.Body)
+                var igData struct {
+                    ID                string `json:"id"`
+                    Username          string `json:"username"`
+                    Name              string `json:"name"`
+                    ProfilePictureURL string `json:"profile_picture_url"`
+                    Biography         string `json:"biography"`
+                    Website           string `json:"website"`
+                    FollowersCount    int    `json:"followers_count"`
+                    FollowsCount      int    `json:"follows_count"`
+                    MediaCount        int    `json:"media_count"`
+                }
+                if err := json.Unmarshal(bodyBytes, &igData); err == nil {
+                    igAccounts = append(igAccounts, &userInfoResponse{
+                        ID:                igData.ID,
+                        Username:          igData.Username,
+                        Name:              igData.Name,
+                        ProfilePictureURL: igData.ProfilePictureURL,
+                        Biography:         igData.Biography,
+                        Website:           igData.Website,
+                        FollowersCount:    igData.FollowersCount,
+                        FollowsCount:      igData.FollowsCount,
+                        MediaCount:        igData.MediaCount,
+                    })
+                }
+            }
+            if igResp != nil {
+                igResp.Body.Close()
+            }
 		}
 	}
 
 	s.logger.Info("Facebook accounts retrieved",
 		zap.Int("total_pages", totalPages),
-		zap.Int("instagram_accounts_connected", instagramAccountsCount),
+		zap.Int("instagram_accounts_connected", len(igAccounts)),
 	)
 
-	if firstLinkedAccount != nil {
-		return firstLinkedAccount, nil
+	if len(igAccounts) > 0 {
+		return igAccounts, nil
 	}
 
 	s.logger.Warn("No instagram business account found in Facebook response",

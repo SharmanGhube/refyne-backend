@@ -127,40 +127,47 @@ func (h *InstagramHandler) OAuthCallback(c *gin.Context) {
 	}
 
 	// Handle callback
-	account, err := h.oauthService.HandleCallback(c, userID, code, state)
+	accounts, err := h.oauthService.HandleCallback(c, userID, code, state)
 	if err != nil {
 		h.logger.Error("OAuth callback failed", zap.Error(err))
 		c.JSON(err.HTTPStatus, gin.H{"error": err.Message})
 		return
 	}
 
-	h.logger.Info("OAuth callback successful", zap.String("account_id", account.ID))
+	h.logger.Info("OAuth callback successful", zap.Int("accounts_saved", len(accounts)))
 
-	// Immediately queue an initial sync for the new account so the dashboard populates!
-	jobArgs := jobs.SyncMediaArgs{
-		AccountID: account.ID,
-		SyncType:  "full", // Do a full initial sync
-		Force:     true,   // Force it regardless of recent syncs
-	}
-	
-	jobCtx, cancel := context.WithTimeout(c, 5*time.Second)
-	defer cancel()
-	
-	if _, errQueue := h.riverService.GetClient().Insert(jobCtx, jobArgs, nil); errQueue != nil {
-		h.logger.Error("Failed to queue initial sync job", zap.Error(errQueue), zap.String("account_id", account.ID))
-		// We don't fail the request here, as the OAuth itself succeeded
-	} else {
-		h.logger.Info("Initial sync job queued successfully", zap.String("account_id", account.ID))
-	}
+	var responseAccounts []gin.H
 
-	c.JSON(200, gin.H{
-		"status": "ok",
-		"data": gin.H{
+	// Immediately queue an initial sync for the new accounts so the dashboard populates!
+	for _, account := range accounts {
+		jobArgs := jobs.SyncMediaArgs{
+			AccountID: account.ID,
+			SyncType:  "full", // Do a full initial sync
+			Force:     true,   // Force it regardless of recent syncs
+		}
+		
+		jobCtx, cancel := context.WithTimeout(c, 5*time.Second)
+		
+		if _, errQueue := h.riverService.GetClient().Insert(jobCtx, jobArgs, nil); errQueue != nil {
+			h.logger.Error("Failed to queue initial sync job", zap.Error(errQueue), zap.String("account_id", account.ID))
+			// We don't fail the request here, as the OAuth itself succeeded
+		} else {
+			h.logger.Info("Initial sync job queued successfully", zap.String("account_id", account.ID))
+		}
+
+		cancel()
+
+		responseAccounts = append(responseAccounts, gin.H{
 			"account_id":        account.ID,
 			"instagram_user_id": account.InstagramUserID,
 			"username":          account.Username,
 			"connected_at":      account.ConnectedAt,
-		},
+		})
+	}
+
+	c.JSON(200, gin.H{
+		"status": "ok",
+		"data": responseAccounts,
 	})
 }
 

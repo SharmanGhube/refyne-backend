@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -42,28 +43,28 @@ func NewInstagramConfig(logger *zap.Logger) (*InstagramConfig, error) {
 	var appID, appSecret, accessToken, refreshToken string
 
 	if env == "production" {
-		appID = os.Getenv("INSTAGRAM_APP_ID")
+		appID = strings.TrimSpace(os.Getenv("INSTAGRAM_APP_ID"))
 		if appID == "" {
-			appID = os.Getenv("INSTAGRAM_CLIENT_ID")
+			appID = strings.TrimSpace(os.Getenv("INSTAGRAM_CLIENT_ID"))
 		}
-		appSecret = os.Getenv("INSTAGRAM_APP_SECRET")
+		appSecret = strings.TrimSpace(os.Getenv("INSTAGRAM_APP_SECRET"))
 		if appSecret == "" {
-			appSecret = os.Getenv("INSTAGRAM_CLIENT_SECRET")
+			appSecret = strings.TrimSpace(os.Getenv("INSTAGRAM_CLIENT_SECRET"))
 		}
-		accessToken = os.Getenv("INSTAGRAM_ACCESS_TOKEN")
-		refreshToken = os.Getenv("INSTAGRAM_REFRESH_TOKEN")
+		accessToken = strings.TrimSpace(os.Getenv("INSTAGRAM_ACCESS_TOKEN"))
+		refreshToken = strings.TrimSpace(os.Getenv("INSTAGRAM_REFRESH_TOKEN"))
 	} else {
 		// Sandbox credentials
-		appID = os.Getenv("INSTAGRAM_SANDBOX_APP_ID")
+		appID = strings.TrimSpace(os.Getenv("INSTAGRAM_SANDBOX_APP_ID"))
 		if appID == "" {
-			appID = os.Getenv("INSTAGRAM_CLIENT_ID")
+			appID = strings.TrimSpace(os.Getenv("INSTAGRAM_CLIENT_ID"))
 		}
-		appSecret = os.Getenv("INSTAGRAM_SANDBOX_APP_SECRET")
+		appSecret = strings.TrimSpace(os.Getenv("INSTAGRAM_SANDBOX_APP_SECRET"))
 		if appSecret == "" {
-			appSecret = os.Getenv("INSTAGRAM_CLIENT_SECRET")
+			appSecret = strings.TrimSpace(os.Getenv("INSTAGRAM_CLIENT_SECRET"))
 		}
-		accessToken = os.Getenv("INSTAGRAM_SANDBOX_ACCESS_TOKEN")
-		refreshToken = os.Getenv("INSTAGRAM_SANDBOX_REFRESH_TOKEN")
+		accessToken = strings.TrimSpace(os.Getenv("INSTAGRAM_SANDBOX_ACCESS_TOKEN"))
+		refreshToken = strings.TrimSpace(os.Getenv("INSTAGRAM_SANDBOX_REFRESH_TOKEN"))
 	}
 
 	if appID == "" {

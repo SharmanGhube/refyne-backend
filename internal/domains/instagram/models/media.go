@@ -123,7 +123,7 @@ type AccountInsights struct {
 	EngagementRate float64   `db:"engagement_rate" json:"engagement_rate"`
 	GrowthRate     float64   `db:"growth_rate" json:"growth_rate"`
 	MetricDate     time.Time `db:"metric_date" json:"metric_date"`
-	CollectedAt    time.Time `db:"collected_at" json:"collected_at"`
+	CollectedAt    time.Time `db:"synced_at" json:"collected_at"`
 	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
 }
 

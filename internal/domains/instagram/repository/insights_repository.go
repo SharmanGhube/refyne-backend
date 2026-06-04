@@ -169,7 +169,7 @@ func (r *instagramInsightsRepository) StoreAccountInsights(ctx context.Context, 
 func (r *instagramInsightsRepository) GetAccountInsightsByDate(ctx context.Context, accountID string, date time.Time) (*models.AccountInsights, error) {
 	query := `
 		SELECT id, account_id, impressions, reach, profile_views, follower_count,
-			engagement_rate, growth_rate, metric_date, collected_at, updated_at
+			engagement_rate, growth_rate, metric_date, synced_at, updated_at
 		FROM instagram_insights
 		WHERE account_id = $1 AND DATE(metric_date) = DATE($2)
 		LIMIT 1
@@ -189,7 +189,7 @@ func (r *instagramInsightsRepository) GetAccountInsightsByDate(ctx context.Conte
 func (r *instagramInsightsRepository) GetAccountInsightsTrend(ctx context.Context, accountID string, days int) ([]*models.AccountInsights, error) {
 	query := `
 		SELECT id, account_id, impressions, reach, profile_views, follower_count,
-			engagement_rate, growth_rate, metric_date, collected_at, updated_at
+			engagement_rate, growth_rate, metric_date, synced_at, updated_at
 		FROM instagram_insights
 		WHERE account_id = $1 AND metric_date >= NOW() - INTERVAL '1 day' * $2
 		ORDER BY metric_date DESC

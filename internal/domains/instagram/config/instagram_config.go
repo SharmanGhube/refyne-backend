@@ -113,7 +113,7 @@ func NewGeminiConfig(logger *zap.Logger) (*GeminiConfig, error) {
 
 	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
-		model = "gemini-2.0-flash"
+		model = "gemini-3.1-flash"
 	}
 
 	maxTokens := 4096

@@ -33,7 +33,7 @@ func NewOttoAssistantService(
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	model := os.Getenv("GEMINI_MODEL")
 	if model == "" {
-		model = "gemini-2.0-flash"
+		model = "gemini-3.1-flash"
 	}
 
 	logger := logging.GetServiceLogger("OttoAssistantService")
